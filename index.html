@@ -165,7 +165,7 @@
                     <!-- Notification Dropdown Menu -->
                     <div
                         id="notificationDropdown"
-                        class="hidden absolute right-0 mt-2 w-[calc(100vw-24px)] max-w-sm sm:w-96 bg-zinc-950/95 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl z-[2500] flex flex-col max-h-[460px]"
+                        class="hidden fixed sm:absolute left-3 right-3 sm:left-auto sm:right-0 top-[68px] sm:top-auto sm:mt-2 max-w-sm sm:w-96 mx-auto sm:mx-0 bg-zinc-950/95 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl z-[2500] flex flex-col max-h-[70vh] sm:max-h-[460px]"
                     >
                         <div class="px-4 py-3 bg-zinc-900/90 border-b border-zinc-800/80 flex items-center justify-between">
                             <div class="flex items-center gap-2">
@@ -189,10 +189,10 @@
                     </div>
                 </div>
 
-                <!-- Log Trip Button -->
-                <button id="btnOpenLogTrip" type="button" class="text-zinc-200 hover:text-white font-medium rounded-xl text-xs sm:text-sm px-2.5 sm:px-3.5 py-2 transition flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 hover:border-brand-500/50 shadow-lg active:scale-95">
+                <!-- Log Trip Button (Desktop / Tablet, on mobile use bottom floating pill) -->
+                <button id="btnOpenLogTrip" type="button" class="hidden sm:flex text-zinc-200 hover:text-white font-medium rounded-xl text-xs sm:text-sm px-2.5 sm:px-3.5 py-2 transition items-center gap-1.5 bg-zinc-900 border border-zinc-800 hover:border-brand-500/50 shadow-lg active:scale-95">
                     <i class="ph ph-plus-circle text-base sm:text-lg text-brand-500"></i>
-                    <span class="hidden sm:inline">Log Trip</span>
+                    <span>Log Trip</span>
                 </button>
                 <!-- Garage / Auth Button -->
                 <button id="btnOpenGarage" type="button" class="text-zinc-950 bg-brand-500 hover:bg-brand-600 font-bold rounded-xl text-xs sm:text-sm px-2.5 sm:px-3.5 py-2 transition flex items-center gap-1.5 shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:shadow-[0_0_20px_rgba(245,158,11,0.5)] active:scale-95">
@@ -213,7 +213,7 @@
         <!-- Drawer Panel -->
         <aside
             id="sidebarPanel"
-            class="relative w-full max-w-sm h-full bg-zinc-900 border-r border-zinc-800 shadow-2xl pointer-events-auto flex flex-col justify-between transform -translate-x-full transition-transform duration-300"
+            class="relative w-[85vw] max-w-sm h-full bg-zinc-900 border-r border-zinc-800 shadow-2xl pointer-events-auto flex flex-col justify-between transform -translate-x-full transition-transform duration-300 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)]"
         >
             <!-- Top Header & Navigation Tabs -->
             <div class="p-4 border-b border-zinc-800 bg-zinc-950/60 shrink-0">
@@ -671,12 +671,12 @@
     <!-- Map Container -->
     <div id="map" class="w-full h-full z-0 relative"></div>
 
-    <!-- Floating "My Location" Button (Google Maps Style, Bottom-Right above Zoom Controls) -->
+    <!-- Floating "My Location" Button (Google Maps Style, Stacked Cleanly Above Leaflet Zoom on Mobile) -->
     <button
         id="btnMyLocation"
         type="button"
         title="ไปยังตำแหน่งปัจจุบันของฉัน (My Location)"
-        class="fixed bottom-24 right-3.5 z-[1000] w-12 h-12 rounded-full bg-zinc-900/95 hover:bg-zinc-800 text-zinc-100 hover:text-brand-500 border border-zinc-700/80 shadow-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 backdrop-blur-md"
+        class="fixed bottom-44 sm:bottom-6 right-3.5 sm:right-6 z-[1000] w-12 h-12 rounded-full bg-zinc-900/95 hover:bg-zinc-800 text-zinc-100 hover:text-brand-500 border border-zinc-700/80 shadow-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 backdrop-blur-md"
     >
         <i id="myLocationIcon" class="ph-bold ph-crosshair text-xl text-brand-500"></i>
     </button>
@@ -685,7 +685,7 @@
     <button
         id="btnMobileLogTrip"
         type="button"
-        class="sm:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-2 bg-gradient-to-r from-brand-500 to-amber-500 text-zinc-950 font-black text-sm px-6 py-3 rounded-full shadow-[0_0_30px_rgba(245,158,11,0.55)] border border-brand-400/40 active:scale-95 transition-all"
+        class="sm:hidden fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom,0px))] left-1/2 -translate-x-1/2 z-[1050] flex items-center gap-2 bg-gradient-to-r from-brand-500 to-amber-500 text-zinc-950 font-black text-sm px-6 py-3 rounded-full shadow-[0_4px_25px_rgba(245,158,11,0.55)] border border-brand-400/40 active:scale-95 transition-all"
     >
         <i class="ph-bold ph-plus-circle text-xl"></i>
         <span>บันทึกทริปนี้</span>
@@ -699,7 +699,7 @@
         <div id="detailBackdrop" class="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm pointer-events-auto transition-opacity"></div>
 
         <!-- Modal Content -->
-        <div id="detailModalBox" class="relative bg-zinc-900 border border-zinc-700/80 rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl w-full max-w-lg pointer-events-auto transform transition-all duration-200 scale-95 opacity-0 flex flex-col max-h-[92vh] sm:max-h-[88vh]">
+        <div id="detailModalBox" class="relative bg-zinc-900 border border-zinc-700/80 rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl w-full max-w-lg pointer-events-auto transform transition-all duration-200 scale-95 opacity-0 flex flex-col max-h-[92vh] sm:max-h-[88vh] pb-[env(safe-area-inset-bottom,0px)]">
             <!-- Mobile Top Pull/Swipe Indicator -->
             <div class="w-12 h-1.5 rounded-full bg-zinc-600/60 mx-auto mt-2.5 mb-1 sm:hidden shrink-0"></div>
             <!-- Close Button -->
@@ -708,7 +708,7 @@
             </button>
 
             <!-- Image Header (กดเพื่อดูรูปภาพขนาดเต็ม) -->
-            <div id="modalImageWrap" class="relative h-56 sm:h-72 shrink-0 bg-zinc-800 group cursor-pointer overflow-hidden" title="กดเพื่อดูรูปภาพขนาดเต็ม">
+            <div id="modalImageWrap" class="relative h-44 sm:h-72 shrink-0 bg-zinc-800 group cursor-pointer overflow-hidden" title="กดเพื่อดูรูปภาพขนาดเต็ม">
                 <img id="modalImage" src="" alt="Trip Photo" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                 <div class="absolute bottom-0 left-0 w-full h-2/3 bg-gradient-to-t from-zinc-900 to-transparent"></div>
                 <!-- Zoom Indicator Badge -->
@@ -719,7 +719,7 @@
             </div>
 
             <!-- Body -->
-            <div class="p-4 sm:p-6 overflow-y-auto relative -mt-10 sm:-mt-12 space-y-4">
+            <div class="p-4 sm:p-6 overflow-y-auto relative -mt-8 sm:-mt-12 space-y-4">
                 <div class="flex items-center justify-between gap-2">
                     <div class="flex items-center gap-2 text-brand-500 text-sm font-bold drop-shadow-md bg-zinc-900/80 w-fit px-3 py-1 rounded-full backdrop-blur-sm border border-zinc-700/50">
                         <i class="ph-fill ph-calendar-blank"></i>
@@ -877,7 +877,7 @@
     <div id="editTripModal" class="hidden fixed inset-0 z-[2100] flex items-end sm:items-center justify-center p-0 sm:p-6 pointer-events-none">
         <div id="editTripBackdrop" class="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm pointer-events-auto"></div>
 
-        <div class="relative bg-zinc-900 border border-zinc-700/80 rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl w-full max-w-lg pointer-events-auto flex flex-col max-h-[92vh] sm:max-h-[90vh]">
+        <div id="editTripModalBox" class="relative bg-zinc-900 border border-zinc-700/80 rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl w-full max-w-lg pointer-events-auto flex flex-col max-h-[92vh] sm:max-h-[90vh] pb-[env(safe-area-inset-bottom,0px)]">
             <!-- Mobile Top Pull/Swipe Indicator -->
             <div class="w-12 h-1.5 rounded-full bg-zinc-600/60 mx-auto mt-2.5 mb-1 sm:hidden shrink-0"></div>
             <div class="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-zinc-800">
@@ -957,7 +957,7 @@
     <div id="logTripModal" class="hidden fixed inset-0 z-[2000] flex items-end sm:items-center justify-center p-0 sm:p-6 pointer-events-none">
         <div id="logTripBackdrop" class="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm pointer-events-auto"></div>
 
-        <div class="relative bg-zinc-900 border border-zinc-700/80 rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl w-full max-w-lg pointer-events-auto flex flex-col max-h-[92vh] sm:max-h-[90vh]">
+        <div id="logTripModalBox" class="relative bg-zinc-900 border border-zinc-700/80 rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl w-full max-w-lg pointer-events-auto flex flex-col max-h-[92vh] sm:max-h-[90vh] pb-[env(safe-area-inset-bottom,0px)]">
             <!-- Mobile Top Pull/Swipe Indicator -->
             <div class="w-12 h-1.5 rounded-full bg-zinc-600/60 mx-auto mt-2.5 mb-1 sm:hidden shrink-0"></div>
             <div class="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-zinc-800">
@@ -1079,7 +1079,7 @@
     <div id="garageModal" class="hidden fixed inset-0 z-[2000] flex items-end sm:items-center justify-center p-0 sm:p-6 pointer-events-none">
         <div id="garageBackdrop" class="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm pointer-events-auto"></div>
 
-        <div class="relative bg-zinc-900 border border-zinc-700/80 rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl w-full max-w-md pointer-events-auto flex flex-col max-h-[92vh] sm:max-h-[90vh]">
+        <div id="garageModalBox" class="relative bg-zinc-900 border border-zinc-700/80 rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl w-full max-w-md pointer-events-auto flex flex-col max-h-[92vh] sm:max-h-[90vh] pb-[env(safe-area-inset-bottom,0px)]">
             <!-- Mobile Top Pull/Swipe Indicator -->
             <div class="w-12 h-1.5 rounded-full bg-zinc-600/60 mx-auto mt-2.5 mb-1 sm:hidden shrink-0"></div>
             <div class="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-zinc-800">

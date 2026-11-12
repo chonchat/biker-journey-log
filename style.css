@@ -126,10 +126,10 @@ body {
     font-size: 16px !important;
   }
 
-  /* Touch-friendly Leaflet controls on phones */
+  /* Touch-friendly Leaflet controls on phones - stacked cleanly without overlap */
   .leaflet-control-zoom {
     margin-right: 12px !important;
-    margin-bottom: 86px !important;
+    margin-bottom: 82px !important;
   }
   .leaflet-control-layers {
     margin-left: 12px !important;
