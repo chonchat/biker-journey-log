@@ -1494,6 +1494,32 @@ function formatReadableDate(dateStr) {
   });
 }
 
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function formatTimeAgo(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  const now = new Date();
+  const diffSec = Math.floor((now.getTime() - d.getTime()) / 1000);
+  if (diffSec < 60) return 'เมื่อสักครู่';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin} นาทีที่แล้ว`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours} ชั่วโมงที่แล้ว`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays} วันที่แล้ว`;
+  return formatReadableDate(dateStr);
+}
+
 function resolvePhotoUrl(imagePath) {
   if (!imagePath) return DEFAULT_TRIP_IMAGE;
   if (imagePath.startsWith('data:') || imagePath.startsWith('http')) {
@@ -3191,7 +3217,7 @@ function renderNotificationsUI() {
 
   if (userNotifications.length === 0) {
     notificationList.innerHTML = `
-      <div class="text-xs text-zinc-500 text-center py-6">
+      <div class="text-xs text-zinc-500 text-center py-8">
         <i class="ph ph-bell text-2xl text-zinc-600 mb-1.5 block"></i>
         ยังไม่มีการแจ้งเตือนใหม่ 🔔
       </div>
@@ -3202,36 +3228,47 @@ function renderNotificationsUI() {
   notificationList.innerHTML = '';
   userNotifications.forEach((n) => {
     const item = document.createElement('div');
-    item.className = `p-2.5 rounded-xl transition cursor-pointer flex items-start gap-2.5 ${
-      n.is_read ? 'hover:bg-zinc-900/60 opacity-80' : 'bg-brand-500/10 hover:bg-brand-500/15 border border-brand-500/30'
+    item.className = `p-3 rounded-xl transition cursor-pointer flex items-start gap-3 border ${
+      n.is_read
+        ? 'bg-zinc-900/50 hover:bg-zinc-900 border-zinc-800/80 opacity-80'
+        : 'bg-brand-500/10 hover:bg-brand-500/15 border-brand-500/40 shadow-sm'
     }`;
 
     const actor = n.actor || {};
+    const actorName = actor.username || 'เพื่อนนักบิด';
     const avatarContainer = document.createElement('div');
     avatarContainer.className =
-      'w-8 h-8 rounded-full overflow-hidden bg-brand-500/20 border border-brand-500/50 flex items-center justify-center shrink-0 mt-0.5';
+      'w-9 h-9 rounded-full overflow-hidden bg-brand-500/20 border border-brand-500/50 flex items-center justify-center shrink-0 mt-0.5 shadow-sm';
     if (actor.avatar_url) {
       const img = document.createElement('img');
       img.src = actor.avatar_url;
       img.className = 'w-full h-full object-cover';
       avatarContainer.appendChild(img);
     } else {
-      avatarContainer.innerHTML = `<span class="text-xs font-bold text-brand-400">${(actor.username || 'R').charAt(0).toUpperCase()}</span>`;
+      avatarContainer.innerHTML = `<span class="text-xs font-black text-brand-400">${actorName.charAt(0).toUpperCase()}</span>`;
     }
 
     const contentDiv = document.createElement('div');
     contentDiv.className = 'flex-1 overflow-hidden';
-    contentDiv.innerHTML = `
-      <p class="text-xs text-zinc-200 leading-snug line-clamp-2">${escapeHtml(n.message)}</p>
-      <span class="text-[10px] text-zinc-500 mt-1 block">${formatReadableDate(n.created_at)}</span>
-    `;
+
+    const msgP = document.createElement('p');
+    msgP.className = 'text-xs text-zinc-200 leading-snug line-clamp-3';
+    msgP.textContent = n.message || 'มีการแสดงความคิดเห็นใหม่ในทริปของคุณ';
+
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'text-[11px] text-zinc-400 mt-1 block font-medium flex items-center gap-1';
+    timeSpan.innerHTML = `<i class="ph ph-clock text-xs text-zinc-500"></i> ${formatTimeAgo(n.created_at)}`;
+
+    contentDiv.appendChild(msgP);
+    contentDiv.appendChild(timeSpan);
 
     item.appendChild(avatarContainer);
     item.appendChild(contentDiv);
 
     if (!n.is_read) {
       const dot = document.createElement('span');
-      dot.className = 'w-2 h-2 rounded-full bg-brand-500 shrink-0 mt-2 shadow-[0_0_8px_rgba(245,158,11,0.8)]';
+      dot.className =
+        'w-2 h-2 rounded-full bg-brand-500 shrink-0 mt-2 shadow-[0_0_8px_rgba(245,158,11,0.8)]';
       item.appendChild(dot);
     }
 
@@ -3252,6 +3289,12 @@ function renderNotificationsUI() {
         }
         setTimeout(() => {
           modalCommentsList?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 400);
+      }
+    });
+
+    notificationList.appendChild(item);
+  });
         }, 400);
       }
     });
