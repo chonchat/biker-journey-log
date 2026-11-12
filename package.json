@@ -1,0 +1,12 @@
+{
+  "name": "biker-journey-log",
+  "version": "1.0.0",
+  "description": "Biker Journey Log - บันทึกเส้นทางทริปขี่มอเตอร์ไซค์",
+  "scripts": {
+    "dev": "npx serve -l 5500",
+    "start": "npx serve -l 5500"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

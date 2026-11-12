@@ -1,0 +1,1430 @@
+<!DOCTYPE html>
+<html lang="th" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biker Journey Log — RideMap</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter & Prompt -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Prompt', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            400: '#fbbf24', // Amber 400
+                            500: '#f59e0b', // Amber 500
+                            600: '#d97706', // Amber 600
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body class="antialiased overflow-hidden h-screen w-screen bg-zinc-950 text-zinc-100 flex flex-col relative">
+
+    <!-- Pull to Refresh Indicator (สำหรับมือถือและหน้าจอสัมผัส) -->
+    <div
+        id="pullToRefreshIndicator"
+        class="fixed top-0 left-1/2 -translate-x-1/2 z-[3000] -translate-y-full transition-transform duration-200 pointer-events-none flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-900/95 border border-brand-500/80 text-brand-400 shadow-2xl backdrop-blur-md text-xs font-bold"
+    >
+        <i id="pullToRefreshIcon" class="ph-bold ph-arrow-down text-base transition-transform duration-200"></i>
+        <span id="pullToRefreshText">เลื่อนลงเพื่อรีเฟรชข้อมูลทริป</span>
+    </div>
+
+    <!-- Toast Notification Banner -->
+    <div id="toastBox" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-[3000] px-4 py-2.5 rounded-xl border text-sm font-medium shadow-2xl backdrop-blur-md flex items-center gap-2 transition-all"></div>
+
+    <!-- Map Pick Coordinate Helper Banner -->
+    <div id="pickMapBanner" class="hidden fixed bottom-8 left-1/2 -translate-x-1/2 z-[1500] bg-zinc-900/95 border border-brand-500 text-zinc-100 px-5 py-3 rounded-full shadow-[0_0_25px_rgba(245,158,11,0.4)] flex items-center gap-3 backdrop-blur-md">
+        <i class="ph-fill ph-crosshair text-brand-500 text-xl animate-pulse"></i>
+        <span class="text-sm font-medium">คลิกจุดใดก็ได้บนแผนที่เพื่อเลือกพิกัดทริป</span>
+        <button id="btnCancelPickMap" type="button" class="text-xs bg-zinc-800 hover:bg-zinc-700 px-3 py-1 rounded-full border border-zinc-700 transition">ยกเลิก</button>
+    </div>
+
+    <!-- GPS Permission Floating Request Banner -->
+    <div id="gpsPermissionBanner" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-[1500] w-[92%] max-w-lg bg-zinc-900/95 backdrop-blur-md border border-brand-500/60 rounded-2xl p-3 shadow-2xl flex items-center justify-between gap-3 text-xs pointer-events-auto">
+        <div class="flex items-center gap-2.5 overflow-hidden">
+            <div class="w-8 h-8 rounded-full bg-brand-500/20 text-brand-500 flex items-center justify-center shrink-0">
+                <i class="ph-bold ph-navigation-arrow text-lg"></i>
+            </div>
+            <div class="overflow-hidden">
+                <p class="font-bold text-white truncate">ต้องการเปิดใช้งาน GPS หรือไม่?</p>
+                <p class="text-[11px] text-zinc-400 truncate">เพื่อแสดงตำแหน่งปัจจุบันของคุณบนแผนที่ RideMap</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0">
+            <button id="btnBannerAllowGps" type="button" class="bg-brand-500 hover:bg-brand-600 text-zinc-950 font-bold px-3 py-1.5 rounded-lg text-xs transition flex items-center gap-1 shadow">
+                <i class="ph-bold ph-crosshair"></i> เปิด GPS
+            </button>
+            <button id="btnBannerDismissGps" type="button" class="text-zinc-400 hover:text-white p-1.5" title="ปิดการแจ้งเตือน">
+                <i class="ph-bold ph-x text-base"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Navigation Bar + Google Maps Style Search Bar -->
+    <nav class="absolute w-full z-[1000] top-0 start-0 border-b border-zinc-800/60 bg-zinc-950/80 backdrop-blur-md pointer-events-auto">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+            <!-- Left: Sidebar Toggle Button + Refresh Button + Brand Logo -->
+            <div class="flex items-center gap-2 shrink-0">
+                <button
+                    id="btnOpenSidebar"
+                    type="button"
+                    title="เปิดแถบเมนูด้านข้าง (โปรไฟล์ / ตั้งค่า / ข้อเสนอแนะ / ติดต่อ)"
+                    class="w-10 h-10 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-brand-500/60 text-zinc-200 hover:text-brand-400 flex items-center justify-center transition shadow-md"
+                >
+                    <i class="ph-bold ph-list text-xl"></i>
+                </button>
+                <button
+                    id="btnHeaderRefresh"
+                    type="button"
+                    title="รีเฟรชข้อมูลทริปและแผนที่ล่าสุด"
+                    class="w-10 h-10 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-brand-500/60 text-zinc-300 hover:text-brand-400 flex items-center justify-center transition shadow-md active:scale-95"
+                >
+                    <i id="iconHeaderRefresh" class="ph-bold ph-arrows-clockwise text-lg"></i>
+                </button>
+                <a href="#" id="btnResetMapView" class="flex items-center space-x-1.5 drop-shadow-md">
+                    <i class="ph-fill ph-map-trifold text-2xl sm:text-3xl text-brand-500"></i>
+                    <span class="self-center text-lg sm:text-xl font-bold whitespace-nowrap tracking-wide">Ride<span class="text-brand-500">Map</span></span>
+                </a>
+            </div>
+
+            <!-- Center: Google Maps Style Search Bar -->
+            <div class="relative flex-1 max-w-md mx-auto w-full order-3 md:order-2">
+                <form id="mapSearchForm" class="relative flex items-center">
+                    <i class="ph ph-magnifying-glass text-zinc-400 text-lg absolute left-3.5 pointer-events-none"></i>
+                    <input
+                        type="text"
+                        id="mapSearchInput"
+                        autocomplete="off"
+                        placeholder="ค้นหาสถานที่เหมือน Google Maps (เช่น ดอยอินทนนท์, เขาค้อ, แม่กำปอง)..."
+                        class="w-full bg-zinc-900/95 border border-zinc-700/80 focus:border-brand-500 rounded-full pl-10 pr-20 py-2 text-sm text-white placeholder-zinc-400 focus:outline-none shadow-lg transition"
+                    />
+                    <button
+                        type="button"
+                        id="btnClearSearch"
+                        class="hidden absolute right-14 text-zinc-400 hover:text-white p-1"
+                        title="ล้างคำค้นหา"
+                    >
+                        <i class="ph ph-x-circle text-base"></i>
+                    </button>
+                    <button
+                        type="submit"
+                        id="btnSubmitSearch"
+                        class="absolute right-1.5 bg-brand-500 hover:bg-brand-600 text-zinc-950 font-bold text-xs px-3 py-1.5 rounded-full transition"
+                    >
+                        ค้นหา
+                    </button>
+                </form>
+
+                <!-- Search Suggestions / Results Dropdown -->
+                <div
+                    id="mapSearchResults"
+                    class="hidden absolute left-0 right-0 mt-2 bg-zinc-900/95 border border-zinc-700 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl max-h-80 overflow-y-auto z-[2500]"
+                ></div>
+            </div>
+
+            <!-- Right: Action Buttons -->
+            <div class="flex order-2 md:order-3 space-x-2 items-center shrink-0">
+                <!-- Notification Bell Button & Dropdown -->
+                <div class="relative">
+                    <button
+                        id="btnOpenNotifications"
+                        type="button"
+                        title="การแจ้งเตือนคอมเมนต์"
+                        class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-brand-500/60 text-zinc-300 hover:text-brand-400 flex items-center justify-center transition shadow-md active:scale-95"
+                    >
+                        <i class="ph-bold ph-bell text-lg"></i>
+                        <span
+                            id="notificationBadge"
+                            class="hidden absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-red-600 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-lg border-2 border-zinc-950 animate-pulse"
+                        >0</span>
+                    </button>
+
+                    <!-- Notification Dropdown Menu -->
+                    <div
+                        id="notificationDropdown"
+                        class="hidden absolute right-0 mt-2 w-80 sm:w-96 bg-zinc-950/95 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl z-[2500] flex flex-col max-h-[460px]"
+                    >
+                        <div class="px-4 py-3 bg-zinc-900/90 border-b border-zinc-800/80 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <i class="ph-fill ph-bell-ringing text-brand-400"></i>
+                                <span class="text-sm font-bold text-white">การแจ้งเตือน</span>
+                            </div>
+                            <button
+                                type="button"
+                                id="btnMarkAllNotificationsRead"
+                                class="text-xs text-brand-400 hover:text-brand-300 font-medium transition"
+                            >
+                                อ่านทั้งหมด
+                            </button>
+                        </div>
+                        <div id="notificationList" class="overflow-y-auto divide-y divide-zinc-800/60 flex-1 max-h-[360px] p-1.5">
+                            <div class="text-xs text-zinc-500 text-center py-6">
+                                <i class="ph ph-bell text-2xl text-zinc-600 mb-1.5 block"></i>
+                                ยังไม่มีการแจ้งเตือนใหม่ 🔔
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Log Trip Button -->
+                <button id="btnOpenLogTrip" type="button" class="text-zinc-200 hover:text-white font-medium rounded-lg text-sm px-3.5 py-2 transition flex items-center gap-2 bg-zinc-900 border border-zinc-800 hover:border-brand-500/50 shadow-lg">
+                    <i class="ph ph-plus-circle text-lg text-brand-500"></i>
+                    <span class="hidden sm:inline">Log Trip</span>
+                </button>
+                <!-- Garage / Auth Button -->
+                <button id="btnOpenGarage" type="button" class="text-zinc-950 bg-brand-500 hover:bg-brand-600 font-bold rounded-lg text-sm px-3.5 py-2 transition flex items-center gap-2 shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:shadow-[0_0_20px_rgba(245,158,11,0.5)]">
+                    <i class="ph ph-motorcycle text-lg"></i>
+                    <span id="navGarageLabel" class="hidden sm:inline">Garage</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ==========================================================
+         LEFT SIDEBAR DRAWER (แก้ไขโปรไฟล์ + ตั้งค่า + ข้อเสนอแนะ + ติดต่อผู้พัฒนาล่างสุด)
+         ========================================================== -->
+    <div id="sidebarWrapper" class="hidden fixed inset-0 z-[2200] pointer-events-none">
+        <!-- Backdrop -->
+        <div id="sidebarBackdrop" class="absolute inset-0 bg-zinc-950/75 backdrop-blur-sm pointer-events-auto transition-opacity"></div>
+
+        <!-- Drawer Panel -->
+        <aside
+            id="sidebarPanel"
+            class="relative w-full max-w-sm h-full bg-zinc-900 border-r border-zinc-800 shadow-2xl pointer-events-auto flex flex-col justify-between transform -translate-x-full transition-transform duration-300"
+        >
+            <!-- Top Header & Navigation Tabs -->
+            <div class="p-4 border-b border-zinc-800 bg-zinc-950/60 shrink-0">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <i class="ph-fill ph-compass text-2xl text-brand-500"></i>
+                        <div>
+                            <h2 class="text-base font-bold text-white leading-tight">RideMap Control Center</h2>
+                            <p class="text-[11px] text-zinc-400">โปรไฟล์ • การตั้งค่า • ข้อเสนอแนะ</p>
+                        </div>
+                    </div>
+                    <button
+                        id="btnCloseSidebar"
+                        type="button"
+                        class="w-8 h-8 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white flex items-center justify-center transition"
+                    >
+                        <i class="ph ph-x"></i>
+                    </button>
+                </div>
+
+                <!-- 3 Sidebar Section Tabs -->
+                <div class="grid grid-cols-3 gap-1 bg-zinc-950 p-1 rounded-xl border border-zinc-800">
+                    <button
+                        type="button"
+                        id="sideTabProfileBtn"
+                        class="py-1.5 text-xs font-bold rounded-lg bg-brand-500 text-zinc-950 flex items-center justify-center gap-1 transition"
+                    >
+                        <i class="ph-bold ph-user-circle"></i> โปรไฟล์
+                    </button>
+                    <button
+                        type="button"
+                        id="sideTabSettingsBtn"
+                        class="py-1.5 text-xs font-bold rounded-lg text-zinc-400 hover:text-white flex items-center justify-center gap-1 transition"
+                    >
+                        <i class="ph-bold ph-gear-six"></i> ตั้งค่า
+                    </button>
+                    <button
+                        type="button"
+                        id="sideTabFeedbackBtn"
+                        class="py-1.5 text-xs font-bold rounded-lg text-zinc-400 hover:text-white flex items-center justify-center gap-1 transition"
+                    >
+                        <i class="ph-bold ph-chat-centered-text"></i> ข้อเสนอแนะ
+                    </button>
+                </div>
+            </div>
+
+            <!-- Middle Scrollable Content Area -->
+            <div class="flex-1 overflow-y-auto p-4 space-y-4">
+                <!-- TAB 1: โปรไฟล์นักบิด -->
+                <div id="sideSectionProfile" class="space-y-4">
+                    <!-- หน้าจอเมื่อ "ยังไม่ได้ล็อกอิน": แสดงกล่องชวนล็อกอิน และซ่อนฟอร์มแก้ไข -->
+                    <div id="sideProfileGuestNotice" class="bg-zinc-950 border border-brand-500/40 rounded-2xl p-6 text-center space-y-3">
+                        <div class="w-14 h-14 mx-auto rounded-full bg-brand-500/20 border border-brand-500 flex items-center justify-center text-brand-400 text-3xl">
+                            <i class="ph-bold ph-user"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-bold text-white">คุณยังไม่ได้เข้าสู่ระบบ</h3>
+                            <p class="text-xs text-zinc-400 mt-1.5 leading-relaxed">
+                                เข้าสู่ระบบเพื่อจัดการข้อมูลโปรไฟล์ รูปโปรไฟล์ รุ่นรถ และทริปของคุณ
+                            </p>
+                        </div>
+                        <div class="space-y-2 pt-1">
+                            <button
+                                type="button"
+                                id="btnSideGoogleLogin"
+                                class="w-full bg-white hover:bg-zinc-100 text-zinc-900 font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-md active:scale-[0.99]"
+                            >
+                                <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                                </svg>
+                                <span>เข้าสู่ระบบด้วย Google</span>
+                            </button>
+                            <button
+                                type="button"
+                                id="btnSideLoginPrompt"
+                                class="w-full bg-brand-500 hover:bg-brand-600 text-zinc-950 font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow"
+                            >
+                                <i class="ph-bold ph-envelope-simple text-sm"></i> เข้าสู่ระบบ / สมัครด้วยอีเมล
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ส่วนคอนเทนต์โปรไฟล์เมื่อ "ล็อกอินแล้ว": แสดงข้อมูลโปรไฟล์ + ฟอร์มแก้ไข + ปุ่ม Logout -->
+                    <div id="sideProfileLoggedInContent" class="hidden space-y-4">
+                        <!-- การ์ดแสดงข้อมูลโปรไฟล์และปุ่ม Logout -->
+                        <div id="sideProfileCardHeader" class="bg-zinc-950 border border-zinc-800 rounded-2xl p-3.5 flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-3 overflow-hidden flex-1">
+                                <div
+                                    id="sideProfileAvatarPreview"
+                                    class="w-14 h-14 rounded-full bg-brand-500/20 border-2 border-brand-500 flex items-center justify-center text-brand-400 font-extrabold text-xl shrink-0 overflow-hidden relative"
+                                >
+                                    <span id="sideProfileAvatarInitials">🏍️</span>
+                                    <img id="sideProfileAvatarImg" src="" class="hidden w-full h-full object-cover" alt="Profile" />
+                                </div>
+                                <div class="overflow-hidden flex-1">
+                                    <h3 id="sideProfileDisplayName" class="font-bold text-white text-sm truncate">นักบิด</h3>
+                                    <p id="sideProfileDisplayBike" class="text-xs text-brand-500 font-semibold truncate">🏍️ Biker Motorcycle</p>
+                                    <p id="sideProfileEmailDisplay" class="text-[11px] text-zinc-400 truncate mt-0.5">user@example.com</p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                id="btnSideLogout"
+                                class="text-xs text-red-400 hover:text-red-300 bg-red-950/40 hover:bg-red-900/60 border border-red-900/60 px-3 py-1.5 rounded-xl flex items-center gap-1.5 shrink-0 transition"
+                                title="ออกจากระบบ"
+                            >
+                                <i class="ph-bold ph-sign-out"></i> Logout
+                            </button>
+                        </div>
+
+                        <!-- ฟอร์มแก้ไขโปรไฟล์ของบัญชีผู้ใช้ -->
+                        <form id="formEditProfileSidebar" class="space-y-3">
+                            <!-- เพิ่มฟังก์ชันเลือก/เปลี่ยนรูปโปรไฟล์ -->
+                            <div>
+                                <label class="block text-xs font-semibold text-zinc-400 mb-1.5">รูปโปรไฟล์นักบิด (Profile Avatar)</label>
+                                <div class="flex items-center gap-3 bg-zinc-950 border border-zinc-800 rounded-xl p-3">
+                                    <div id="sideAvatarPreviewContainer" class="relative w-14 h-14 rounded-full bg-zinc-900 border-2 border-brand-500 flex items-center justify-center overflow-hidden shrink-0 shadow-md">
+                                        <span id="sideAvatarFallbackIcon" class="text-2xl">🏍️</span>
+                                        <img id="sideAvatarPreviewImg" src="" alt="Avatar" class="hidden w-full h-full object-cover" />
+                                    </div>
+                                    <div class="flex-1 space-y-1.5">
+                                        <label class="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-zinc-950 font-bold text-xs transition">
+                                            <i class="ph-bold ph-camera text-sm"></i>
+                                            <span id="lblChooseAvatar">เลือกรูปโปรไฟล์</span>
+                                            <input type="file" id="inputProfileAvatarFile" accept="image/*" class="hidden" />
+                                        </label>
+                                        <div>
+                                            <button type="button" id="btnRemoveAvatar" class="hidden text-[11px] text-zinc-400 hover:text-red-400 transition">
+                                                <i class="ph ph-trash"></i> ลบรูป ใช้ไอคอนเริ่มต้น
+                                            </button>
+                                        </div>
+                                        <p class="text-[10px] text-zinc-500 leading-tight">รองรับไฟล์ภาพ JPG, PNG, WEBP จากเครื่อง</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-zinc-400 mb-1">ชื่อนักบิด (Username)</label>
+                                <input
+                                    type="text"
+                                    id="sideInputUsername"
+                                    placeholder="เช่น AlexRider_CNX"
+                                    required
+                                    class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-500"
+                                />
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-zinc-400 mb-1">รุ่นรถมอเตอร์ไซค์คู่ใจ (Bike Model)</label>
+                                <input
+                                    type="text"
+                                    id="sideInputBike"
+                                    placeholder="เช่น Honda CB500X / BMW R1250GS"
+                                    required
+                                    class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-500"
+                                />
+                            </div>
+
+                            <!-- แนบลิงก์ประจำโปรไฟล์ -->
+                            <div class="bg-zinc-950 border border-zinc-800 rounded-xl p-3 space-y-2.5">
+                                <div class="flex items-center justify-between">
+                                    <label class="text-xs font-semibold text-brand-400 flex items-center gap-1">
+                                        <i class="ph-bold ph-link"></i> ลิงก์โซเชียล / ช่องทางติดต่อของคุณ
+                                    </label>
+                                </div>
+
+                                <!-- รายการลิงก์ที่แนบไว้ในโปรไฟล์ -->
+                                <div id="sideProfileLinksList" class="space-y-1.5"></div>
+
+                                <!-- เพิ่มลิงก์ใหม่เข้าโปรไฟล์ -->
+                                <div class="grid grid-cols-1 gap-1.5 pt-1 border-t border-zinc-800/80">
+                                    <div class="flex gap-1.5">
+                                        <input
+                                            type="text"
+                                            id="sideNewLinkLabel"
+                                            placeholder="ชื่อลิงก์ (เช่น FB, IG, YouTube)"
+                                            class="w-2/5 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-brand-500"
+                                        />
+                                        <input
+                                            type="url"
+                                            id="sideNewLinkUrl"
+                                            placeholder="https://..."
+                                            class="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-brand-500"
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        id="btnAddProfileLink"
+                                        class="w-full bg-zinc-800 hover:bg-zinc-700 text-brand-400 font-semibold text-xs py-1.5 rounded-lg border border-zinc-700 transition flex items-center justify-center gap-1"
+                                    >
+                                        <i class="ph-bold ph-plus"></i> แนบลิงก์เพิ่มในโปรไฟล์
+                                    </button>
+                                </div>
+                            </div>
+
+                            <button
+                                type="submit"
+                                id="btnSaveProfileSidebar"
+                                class="w-full bg-brand-500 hover:bg-brand-600 text-zinc-950 font-bold py-2.5 rounded-xl text-sm transition shadow-[0_0_15px_rgba(245,158,11,0.3)] flex items-center justify-center gap-1.5"
+                            >
+                                <i class="ph-bold ph-floppy-disk text-base"></i> บันทึกข้อมูลโปรไฟล์
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- TAB 2: การตั้งค่าแผนที่และแอปพลิเคชัน (Settings) -->
+                <div id="sideSectionSettings" class="hidden space-y-3.5">
+                    <div class="bg-zinc-950 border border-zinc-800 rounded-xl p-3.5 space-y-3">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-brand-400 flex items-center gap-1.5">
+                            <i class="ph-fill ph-map-trifold"></i> ตั้งค่าการแสดงผลแผนที่
+                        </h3>
+
+                        <div>
+                            <label class="block text-xs text-zinc-300 mb-1">รูปแบบแผนที่เริ่มต้น</label>
+                            <select
+                                id="settingMapStyle"
+                                class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500"
+                            >
+                                <option value="googleStreets">🗺️ Google Maps (แผนที่ถนนภาษาไทย)</option>
+                                <option value="googleTerrain">🏔️ Google Terrain (แผนที่ภูเขา/ภูมิประเทศ)</option>
+                                <option value="googleHybrid">🛰️ Google Satellite (ดาวเทียม+ชื่อถนน)</option>
+                                <option value="osm">🌍 OpenStreetMap มาตรฐาน</option>
+                                <option value="dark">🌙 Dark Mode Map (โหมดมืด)</option>
+                            </select>
+                        </div>
+
+                        <label class="hidden items-center justify-between cursor-pointer pt-1">
+                            <div>
+                                <span class="block text-xs font-medium text-zinc-200">แสดงทริปตัวอย่าง (Showcase Trips)</span>
+                                <span class="block text-[11px] text-zinc-500">แสดงหมุดทริปแนะนำบนแผนที่</span>
+                            </div>
+                            <input type="checkbox" id="settingShowDemoTrips" class="accent-amber-500 w-4 h-4 cursor-pointer" />
+                        </label>
+
+                        <label class="flex items-center justify-between cursor-pointer pt-1">
+                            <div>
+                                <span class="block text-xs font-medium text-zinc-200">ลากเส้นเชื่อมจุดแวะพัก (Route Line)</span>
+                                <span class="block text-[11px] text-zinc-500">แสดงเส้นประสีทองเชื่อม Checkpoints</span>
+                            </div>
+                            <input type="checkbox" id="settingShowRoutes" checked class="accent-amber-500 w-4 h-4 cursor-pointer" />
+                        </label>
+
+                        <label class="flex items-center justify-between cursor-pointer pt-1">
+                            <div>
+                                <span class="block text-xs font-medium text-zinc-200">คลิกแผนที่เพื่อปักหมุดด่วน</span>
+                                <span class="block text-[11px] text-zinc-500">อนุญาตให้จิ้มจุดใดก็ได้บนแผนที่เพื่อบันทึกทริป</span>
+                            </div>
+                            <input type="checkbox" id="settingQuickMapClick" checked class="accent-amber-500 w-4 h-4 cursor-pointer" />
+                        </label>
+                    </div>
+
+                    <!-- GPS Permission Status & Controls in Sidebar Settings -->
+                    <div class="bg-zinc-950 border border-zinc-800 rounded-xl p-3.5 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-brand-400 flex items-center gap-1.5">
+                                <i class="ph-fill ph-navigation-arrow"></i> สิทธิ์เข้าถึงตำแหน่ง GPS
+                            </h3>
+                            <span id="sideGpsStatusBadge" class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-zinc-800 text-zinc-400">กำลังตรวจสอบ...</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-400 leading-relaxed">
+                            RideMap ใช้พิกัด GPS เพื่อระบุตำแหน่งของคุณบนแผนที่ และใส่พิกัดลงในทริปขับขี่โดยอัตโนมัติ
+                        </p>
+                        <div class="flex gap-2 pt-1">
+                            <button
+                                type="button"
+                                id="btnSideOpenGpsModal"
+                                class="flex-1 bg-brand-500 hover:bg-brand-600 text-zinc-950 font-bold text-xs py-2 px-3 rounded-lg transition flex items-center justify-center gap-1.5 shadow"
+                            >
+                                <i class="ph-bold ph-crosshair"></i> ขออนุญาต / เปิด GPS
+                            </button>
+                            <button
+                                type="button"
+                                id="btnSideGpsTroubleshoot"
+                                class="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 text-xs py-2 px-3 rounded-lg transition flex items-center gap-1"
+                                title="วิธีแก้เมื่อเปิด GPS ไม่ได้"
+                            >
+                                <i class="ph-bold ph-question"></i> วิธีแก้ปัญหา
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-zinc-950 border border-zinc-800 rounded-xl p-3.5 space-y-2.5">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-brand-400 flex items-center gap-1.5">
+                            <i class="ph-fill ph-sliders-horizontal"></i> เครื่องมือจัดการด่วน
+                        </h3>
+                        <button
+                            type="button"
+                            id="btnSettingLocateNow"
+                            class="w-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs text-zinc-200 py-2 px-3 rounded-lg flex items-center justify-between transition"
+                        >
+                            <span>📡 ไปยังตำแหน่ง GPS ปัจจุบันของฉัน</span>
+                            <i class="ph-bold ph-caret-right text-brand-500"></i>
+                        </button>
+                        <button
+                            type="button"
+                            id="btnSettingResetThailand"
+                            class="w-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs text-zinc-200 py-2 px-3 rounded-lg flex items-center justify-between transition"
+                        >
+                            <span>🇹🇭 รีเซ็ตมุมมองแผนที่ทั่วประเทศไทย</span>
+                            <i class="ph-bold ph-caret-right text-brand-500"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- TAB 3: ข้อเสนอแนะและแจ้งปัญหา (Feedback) -->
+                <div id="sideSectionFeedback" class="hidden space-y-3.5">
+                    <form id="formSidebarFeedback" class="bg-zinc-950 border border-zinc-800 rounded-xl p-3.5 space-y-3">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-brand-400 flex items-center gap-1.5">
+                            <i class="ph-fill ph-sparkle"></i> ส่งข้อเสนอแนะ / ติชมระบบ
+                        </h3>
+
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">ความพึงพอใจในการใช้งาน</label>
+                            <div id="feedbackStarGroup" class="flex items-center gap-1.5 text-2xl text-brand-500">
+                                <button type="button" data-star="1" class="star-btn hover:scale-110 transition">★</button>
+                                <button type="button" data-star="2" class="star-btn hover:scale-110 transition">★</button>
+                                <button type="button" data-star="3" class="star-btn hover:scale-110 transition">★</button>
+                                <button type="button" data-star="4" class="star-btn hover:scale-110 transition">★</button>
+                                <button type="button" data-star="5" class="star-btn hover:scale-110 transition">★</button>
+                                <span id="feedbackRatingLabel" class="text-xs text-zinc-400 ml-2">5 / 5 ดาว</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">หมวดหมู่ข้อเสนอแนะ</label>
+                            <select
+                                id="feedbackCategory"
+                                class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500"
+                            >
+                                <option value="เสนอฟีเจอร์ใหม่">💡 เสนอฟีเจอร์ใหม่ที่อยากให้มี</option>
+                                <option value="ปรับปรุงแผนที่/ดีไซน์">🗺️ ปรับปรุงแผนที่ / ดีไซน์ UI</option>
+                                <option value="แจ้งปัญหาการใช้งาน">🛠️ แจ้งปัญหาการใช้งาน (Bug)</option>
+                                <option value="ความคิดเห็นทั่วไป">💬 ความคิดเห็นและคำชมทั่วไป</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">รายละเอียดข้อเสนอแนะ</label>
+                            <textarea
+                                id="feedbackMessage"
+                                rows="3"
+                                required
+                                placeholder="พิมพ์ข้อเสนอแนะหรือสิ่งที่อยากให้พัฒนาเพิ่มเติม..."
+                                class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500"
+                            ></textarea>
+                        </div>
+
+                        <button
+                            type="submit"
+                            class="w-full bg-brand-500 hover:bg-brand-600 text-zinc-950 font-bold py-2 rounded-lg text-xs transition"
+                        >
+                            ส่งข้อเสนอแนะ
+                        </button>
+                    </form>
+
+                    <div>
+                        <h4 class="text-xs font-semibold text-zinc-400 mb-2">ข้อเสนอแนะที่บันทึกไว้ล่าสุด</h4>
+                        <div id="feedbackHistoryList" class="space-y-2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==========================================================
+                 BOTTOM FOOTER: ส่วนติดต่อของฉัน (Owner Contact + แนบลิงก์ได้)
+                 ========================================================== -->
+            <div class="p-4 border-t border-zinc-800 bg-zinc-950 shrink-0">
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-brand-500 flex items-center gap-1">
+                        <i class="ph-fill ph-address-book text-sm"></i> ช่องทางติดต่อผู้พัฒนา / เจ้าของเพจ
+                    </span>
+                    <button
+                        type="button"
+                        id="btnToggleEditOwnerContact"
+                        class="text-[11px] text-zinc-400 hover:text-brand-400 font-semibold flex items-center gap-1 transition"
+                    >
+                        <i class="ph ph-pencil-simple"></i> ตั้งค่า/แนบลิงก์
+                    </button>
+                </div>
+
+                <!-- แสดงผลข้อมูลติดต่อและปุ่มลิงก์ -->
+                <div id="ownerContactDisplayBox" class="space-y-2">
+                    <div>
+                        <div id="ownerContactName" class="text-xs font-bold text-white">Biker Journey Log — ผู้พัฒนา</div>
+                        <div id="ownerContactBio" class="text-[11px] text-zinc-400">คอมมูนิตี้บันทึกเส้นทางสองล้อ พูดคุยหรือติดตามได้ตามลิงก์ด้านล่าง</div>
+                    </div>
+                    <div id="ownerContactLinksContainer" class="flex flex-wrap gap-1.5"></div>
+                </div>
+
+                <!-- ฟอร์มแก้ไขข้อมูลติดต่อของผู้พัฒนาและแนบลิงก์ (เปิดเมื่อกดปุ่มตั้งค่า/แนบลิงก์) -->
+                <form id="formEditOwnerContact" class="hidden mt-2 pt-2 border-t border-zinc-800 space-y-2">
+                    <input
+                        type="text"
+                        id="inputOwnerName"
+                        placeholder="ชื่อของคุณ / ชื่อเพจ"
+                        class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-brand-500"
+                    />
+                    <input
+                        type="text"
+                        id="inputOwnerBio"
+                        placeholder="คำสังเขปสั้นๆ หรือเบอร์ติดต่อ/อีเมล"
+                        class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-brand-500"
+                    />
+
+                    <!-- รายการลิงก์ที่แนบไว้ -->
+                    <div id="ownerEditLinksList" class="space-y-1 max-h-24 overflow-y-auto"></div>
+
+                    <!-- เพิ่มลิงก์ติดต่อใหม่ -->
+                    <div class="flex gap-1">
+                        <input
+                            type="text"
+                            id="inputOwnerLinkLabel"
+                            placeholder="ชื่อปุ่ม (เช่น FB, IG, Line)"
+                            class="w-2/5 bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1 text-[11px] text-white focus:outline-none focus:border-brand-500"
+                        />
+                        <input
+                            type="url"
+                            id="inputOwnerLinkUrl"
+                            placeholder="https://..."
+                            class="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1 text-[11px] text-white focus:outline-none focus:border-brand-500"
+                        />
+                        <button
+                            type="button"
+                            id="btnAddOwnerLink"
+                            class="bg-zinc-800 hover:bg-zinc-700 text-brand-400 text-xs font-bold px-2.5 rounded-lg border border-zinc-700"
+                            title="เพิ่มลิงก์"
+                        >
+                            +
+                        </button>
+                    </div>
+
+                    <div class="flex gap-1.5 pt-1">
+                        <button
+                            type="submit"
+                            class="flex-1 bg-brand-500 hover:bg-brand-600 text-zinc-950 font-bold text-xs py-1.5 rounded-lg transition"
+                        >
+                            บันทึกส่วนติดต่อ
+                        </button>
+                        <button
+                            type="button"
+                            id="btnCancelOwnerContact"
+                            class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs py-1.5 px-3 rounded-lg"
+                        >
+                            ปิด
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Map Container -->
+    <div id="map" class="w-full h-full z-0 relative"></div>
+
+    <!-- Floating "My Location" Button (Google Maps Style, Bottom-Right above Zoom Controls) -->
+    <button
+        id="btnMyLocation"
+        type="button"
+        title="ไปยังตำแหน่งปัจจุบันของฉัน (My Location)"
+        class="fixed bottom-24 right-2.5 z-[1000] w-11 h-11 rounded-full bg-zinc-900/95 hover:bg-zinc-800 text-zinc-100 hover:text-brand-500 border border-zinc-700 shadow-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 backdrop-blur-md"
+    >
+        <i id="myLocationIcon" class="ph-bold ph-crosshair text-xl text-brand-500"></i>
+    </button>
+
+    <!-- ==========================================================
+         1. Custom Tailwind Modal for Trip Details (Profile + Bio/Links + Likes + Comments + Replies)
+         ========================================================== -->
+    <div id="detailModal" class="hidden fixed inset-0 z-[2000] flex items-center justify-center p-4 sm:p-6 pointer-events-none">
+        <!-- Backdrop -->
+        <div id="detailBackdrop" class="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm pointer-events-auto transition-opacity"></div>
+
+        <!-- Modal Content -->
+        <div id="detailModalBox" class="relative bg-zinc-900 border border-zinc-700 rounded-2xl overflow-hidden shadow-2xl w-full max-w-lg pointer-events-auto transform transition-all duration-200 scale-95 opacity-0 flex flex-col max-h-[90vh]">
+            <!-- Close Button -->
+            <button id="btnCloseDetail" type="button" class="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-zinc-950/60 text-white hover:bg-brand-500 hover:text-zinc-950 transition backdrop-blur-md shadow-lg border border-zinc-700/50 hover:border-brand-400">
+                <i class="ph ph-x text-sm font-bold"></i>
+            </button>
+
+            <!-- Image Header (กดเพื่อดูรูปภาพขนาดเต็ม) -->
+            <div id="modalImageWrap" class="relative h-56 sm:h-72 shrink-0 bg-zinc-800 group cursor-pointer overflow-hidden" title="กดเพื่อดูรูปภาพขนาดเต็ม">
+                <img id="modalImage" src="" alt="Trip Photo" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                <div class="absolute bottom-0 left-0 w-full h-2/3 bg-gradient-to-t from-zinc-900 to-transparent"></div>
+                <!-- Zoom Indicator Badge -->
+                <div class="absolute top-4 left-4 z-10 px-3 py-1.5 rounded-full bg-zinc-950/80 border border-zinc-700/80 text-white text-xs font-semibold backdrop-blur-md shadow-xl flex items-center gap-1.5 transition-all group-hover:bg-brand-500 group-hover:text-zinc-950 group-hover:border-brand-400">
+                    <i class="ph-bold ph-magnifying-glass-plus text-sm"></i>
+                    <span>กดดูรูปขนาดเต็ม</span>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div class="p-6 overflow-y-auto relative -mt-12 space-y-4">
+                <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2 text-brand-500 text-sm font-bold drop-shadow-md bg-zinc-900/80 w-fit px-3 py-1 rounded-full backdrop-blur-sm border border-zinc-700/50">
+                        <i class="ph-fill ph-calendar-blank"></i>
+                        <span id="modalDate">Oct 12, 2023</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button id="btnEditTripModal" type="button" class="hidden text-xs text-brand-400 hover:text-brand-300 bg-zinc-950/80 border border-brand-500/50 hover:border-brand-500 px-3 py-1 rounded-full flex items-center gap-1 transition">
+                            <i class="ph ph-pencil-simple"></i> แก้ไขทริป
+                        </button>
+                        <button id="btnDeleteTripModal" type="button" class="hidden text-xs text-red-400 hover:text-red-300 bg-zinc-950/80 border border-red-900/50 hover:border-red-500 px-3 py-1 rounded-full flex items-center gap-1 transition">
+                            <i class="ph ph-trash"></i> ลบทริปนี้
+                        </button>
+                    </div>
+                </div>
+                
+                <h2 id="modalTitle" class="text-2xl sm:text-3xl font-extrabold text-white">Trip Title</h2>
+
+                <!-- Poster Profile Card (พร้อมลิงก์โซเชียลของผู้โพสต์ + ปุ่ม Like / Dislike) -->
+                <div class="bg-zinc-950/90 border border-zinc-800 rounded-xl p-3.5 space-y-2.5">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <div id="modalAuthorAvatar" class="w-10 h-10 rounded-full bg-brand-500/20 border border-brand-500 flex items-center justify-center text-brand-500 font-bold text-sm shrink-0 overflow-hidden relative">
+                                <span id="modalAuthorAvatarInitials">🏍️</span>
+                                <img id="modalAuthorAvatarImg" src="" class="hidden w-full h-full object-cover" alt="Author Avatar" />
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-1.5">
+                                    <span id="modalAuthorName" class="text-sm font-bold text-white">Rider</span>
+                                    <span class="text-[10px] bg-brand-500/20 text-brand-400 border border-brand-500/40 px-1.5 py-0.5 rounded-full font-semibold">ผู้โพสต์ทริป</span>
+                                </div>
+                                <p id="modalAuthorBike" class="text-xs text-brand-500 font-medium">🏍️ Biker Motorcycle</p>
+                            </div>
+                        </div>
+
+                        <!-- Like & Dislike Buttons -->
+                        <div class="flex items-center gap-2">
+                            <button
+                                type="button"
+                                id="btnLikeTrip"
+                                class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-brand-500 transition"
+                            >
+                                <i id="iconLikeTrip" class="ph-bold ph-thumbs-up text-base"></i>
+                                <span id="likeCount">0</span>
+                            </button>
+                            <button
+                                type="button"
+                                id="btnDislikeTrip"
+                                class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-red-500 transition"
+                            >
+                                <i id="iconDislikeTrip" class="ph-bold ph-thumbs-down text-base"></i>
+                                <span id="dislikeCount">0</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="modalAuthorLinks" class="flex flex-wrap gap-1.5"></div>
+                </div>
+                
+                <div class="flex items-center gap-2 text-zinc-400 text-sm font-mono bg-zinc-950 px-3 py-2 rounded-lg inline-flex border border-zinc-800 shadow-inner">
+                    <i class="ph-fill ph-navigation-arrow text-brand-500"></i>
+                    <span id="modalCoords">14.5000, 101.5000</span>
+                </div>
+                
+                <div class="text-zinc-300 leading-relaxed text-sm sm:text-base border-t border-zinc-800 pt-4" id="modalDesc">
+                    Description goes here...
+                </div>
+
+                <!-- Phase 4: Photo Gallery Strip & Upload More Photos -->
+                <div class="border-t border-zinc-800 pt-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                            <i class="ph-fill ph-images text-brand-500"></i> Photo Gallery
+                        </span>
+                        <label id="labelAddMorePhoto" class="cursor-pointer text-xs text-brand-500 hover:text-brand-400 font-semibold flex items-center gap-1">
+                            <i class="ph ph-upload-simple"></i> + เพิ่มรูปภาพ (หลายรูป)
+                            <input type="file" id="inputAddMorePhoto" accept="image/*" multiple class="hidden" />
+                        </label>
+                    </div>
+                    <div id="modalGallery" class="flex gap-2 overflow-x-auto pb-1"></div>
+                </div>
+
+                <!-- Phase 3: Checkpoints List & Add Checkpoint -->
+                <div class="border-t border-zinc-800 pt-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                            <i class="ph-fill ph-flag-pennant text-brand-500"></i> Checkpoints (จุดแวะพัก)
+                        </span>
+                        <button id="btnToggleAddCp" type="button" class="text-xs text-brand-500 hover:text-brand-400 font-semibold flex items-center gap-1">
+                            <i class="ph ph-plus"></i> + เพิ่มจุดแวะพัก
+                        </button>
+                    </div>
+
+                    <!-- Quick Form to Add Checkpoint (with Place Search) -->
+                    <form id="formAddCheckpoint" class="hidden bg-zinc-950 border border-zinc-800 rounded-xl p-3 mb-3 space-y-2">
+                        <div class="flex gap-1.5">
+                            <input type="text" id="cpLocationName" placeholder="พิมพ์ชื่อสถานที่แล้วกดค้นหาพิกัด..." required class="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-brand-500" />
+                            <button type="button" id="btnCpSearchPlace" class="bg-zinc-800 hover:bg-zinc-700 text-brand-400 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-zinc-700 shrink-0">
+                                🔍 ค้นหาพิกัด
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <input type="number" step="any" id="cpLat" placeholder="Latitude" required class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-brand-500" />
+                            <input type="number" step="any" id="cpLng" placeholder="Longitude" required class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-brand-500" />
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="button" id="btnCpGetGps" class="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium py-1.5 px-2 rounded-lg flex items-center justify-center gap-1 transition">
+                                <i class="ph ph-crosshair text-brand-500"></i> ดึง GPS ปัจจุบัน
+                            </button>
+                            <button type="submit" id="btnCpSubmit" class="flex-1 bg-brand-500 hover:bg-brand-600 text-zinc-950 text-xs font-bold py-1.5 px-2 rounded-lg transition">
+                                บันทึกจุดแวะพัก
+                            </button>
+                        </div>
+                    </form>
+
+                    <div id="modalCheckpoints" class="space-y-1.5"></div>
+                </div>
+
+                <!-- Comments & Replies Section -->
+                <div class="border-t border-zinc-800 pt-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                            <i class="ph-fill ph-chat-circle-dots text-brand-500 text-base"></i>
+                            Comments (<span id="commentCount">0</span> ความคิดเห็น)
+                        </span>
+                    </div>
+
+                    <!-- Form to Add Comment -->
+                    <form id="formAddComment" class="flex gap-2 mb-3">
+                        <input
+                            type="text"
+                            id="inputCommentText"
+                            placeholder="แสดงความคิดเห็น สอบถามเส้นทาง หรือพูดคุยกับผู้โพสต์..."
+                            required
+                            class="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500"
+                        />
+                        <button
+                            type="submit"
+                            id="btnSubmitComment"
+                            class="bg-brand-500 hover:bg-brand-600 text-zinc-950 font-bold text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 shrink-0 transition shadow-md"
+                        >
+                            <i class="ph-bold ph-paper-plane-right"></i> ส่ง
+                        </button>
+                    </form>
+
+                    <!-- Comments List -->
+                    <div id="modalCommentsList" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================================
+         1.5 Edit Trip Modal (แก้ไขโพสต์ทริปของตัวเอง)
+         ========================================================== -->
+    <div id="editTripModal" class="hidden fixed inset-0 z-[2100] flex items-center justify-center p-4 sm:p-6 pointer-events-none">
+        <div id="editTripBackdrop" class="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm pointer-events-auto"></div>
+
+        <div class="relative bg-zinc-900 border border-zinc-700 rounded-2xl overflow-hidden shadow-2xl w-full max-w-lg pointer-events-auto flex flex-col max-h-[90vh]">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+                <div class="flex items-center gap-2">
+                    <i class="ph-fill ph-pencil-simple text-brand-500 text-xl"></i>
+                    <h3 class="text-lg font-bold text-white">แก้ไขโพสต์ทริป (Edit Trip)</h3>
+                </div>
+                <button id="btnCloseEditTrip" type="button" class="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:text-white">
+                    <i class="ph ph-x"></i>
+                </button>
+            </div>
+
+            <form id="formEditTrip" class="p-6 overflow-y-auto space-y-4">
+                <input type="hidden" id="editTripId" />
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Trip Title (ชื่อทริป)</label>
+                    <input type="text" id="editTripTitle" required class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-500" />
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Start Date (วันที่เดินทาง)</label>
+                    <input type="date" id="editTripDate" required class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-500" />
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Description (บันทึกการเดินทาง)</label>
+                    <textarea id="editTripDesc" rows="4" placeholder="บรรยากาศเส้นทาง สภาพถนน..." required class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-500"></textarea>
+                </div>
+
+                <!-- Existing Photos with Delete Option -->
+                <div id="editTripExistingPhotosContainer" class="space-y-1.5">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                            รูปภาพปัจจุบันในทริป (กดไอคอนถังขยะเพื่อลบรูป)
+                        </label>
+                        <span id="editTripExistingCountBadge" class="text-[11px] text-zinc-400">0 รูป</span>
+                    </div>
+                    <div id="editTripExistingPhotosList" class="flex gap-2 overflow-x-auto pb-1.5 p-1.5 bg-zinc-950/70 rounded-xl border border-zinc-800/80"></div>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                            เพิ่มรูปภาพใหม่ในทริป (ไม่บังคับ)
+                        </label>
+                        <span id="editTripPhotoCountBadge" class="text-[11px] text-brand-400 font-medium">เพิ่มได้หลายรูป</span>
+                    </div>
+                    <label class="flex items-center gap-3 p-3 rounded-xl bg-zinc-950 border border-dashed border-zinc-700 hover:border-brand-500 cursor-pointer transition">
+                        <img id="editTripPhotoPreview" src="" alt="Preview" class="w-14 h-14 rounded-lg object-cover border border-brand-500 shrink-0" />
+                        <div class="overflow-hidden flex-1">
+                            <p id="editTripPhotoFilename" class="text-sm font-medium text-zinc-200 truncate">คลิกเพื่อเลือกรูปภาพเพิ่ม (เลือกได้หลายรูป)</p>
+                            <p class="text-xs text-zinc-500">หากไม่เลือกจะใช้รูปภาพเดิม</p>
+                        </div>
+                        <span class="text-xs bg-zinc-900 text-brand-400 px-2.5 py-1 rounded-lg border border-zinc-700 font-semibold shrink-0">
+                            + เลือกรูป
+                        </span>
+                        <input type="file" id="editTripPhotoFile" accept="image/*" multiple class="hidden" />
+                    </label>
+                    <div id="editTripPhotoPreviewsList" class="hidden mt-2.5 grid grid-cols-4 gap-2 max-h-32 overflow-y-auto p-1.5 bg-zinc-950/60 rounded-xl border border-zinc-800"></div>
+                </div>
+
+                <div class="flex gap-2 pt-2">
+                    <button type="submit" id="btnSubmitEditTrip" class="flex-1 bg-brand-500 hover:bg-brand-600 text-zinc-950 font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 shadow-md">
+                        <i class="ph-bold ph-floppy-disk text-base"></i> บันทึกการแก้ไข
+                    </button>
+                    <button type="button" id="btnCancelEditTrip" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium px-4 py-2.5 rounded-xl transition">
+                        ยกเลิก
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==========================================================
+         2. Log Trip Modal (Create New Trip + Search Place / GPS / Photo)
+         ========================================================== -->
+    <div id="logTripModal" class="hidden fixed inset-0 z-[2000] flex items-center justify-center p-4 sm:p-6 pointer-events-none">
+        <div id="logTripBackdrop" class="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm pointer-events-auto"></div>
+
+        <div class="relative bg-zinc-900 border border-zinc-700 rounded-2xl overflow-hidden shadow-2xl w-full max-w-lg pointer-events-auto flex flex-col max-h-[90vh]">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+                <div class="flex items-center gap-2">
+                    <i class="ph-fill ph-plus-circle text-brand-500 text-xl"></i>
+                    <h3 class="text-lg font-bold text-white">Log New Biker Trip (บันทึกทริปใหม่)</h3>
+                </div>
+                <button id="btnCloseLogTrip" type="button" class="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:text-white">
+                    <i class="ph ph-x"></i>
+                </button>
+            </div>
+
+            <form id="formLogTrip" class="p-6 overflow-y-auto space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Trip Title (ชื่อทริป)</label>
+                    <input type="text" id="tripTitle" placeholder="เช่น ทริปพิชิตดอยอินทนนท์ / โค้งแม่ฮ่องสอน" required class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-500" />
+                </div>
+
+                <!-- ค้นหาสถานที่อัตโนมัติในฟอร์ม -->
+                <div class="relative">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-brand-400 mb-1">
+                        🔍 ค้นหาสถานที่เพื่อดึงพิกัดอัตโนมัติ (เหมือน Google Maps)
+                    </label>
+                    <div class="flex gap-2">
+                        <input
+                            type="text"
+                            id="tripLocationName"
+                            placeholder="พิมพ์ชื่อสถานที่ เช่น ภูทับเบิก, สะพานมอญ, เขาใหญ่..."
+                            required
+                            class="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-500"
+                        />
+                        <button
+                            type="button"
+                            id="btnModalSearchPlace"
+                            class="bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-brand-400 font-semibold text-xs px-3.5 rounded-xl flex items-center gap-1.5 shrink-0 transition"
+                        >
+                            <i class="ph-bold ph-magnifying-glass"></i> ค้นหาพิกัด
+                        </button>
+                    </div>
+                    <div
+                        id="modalPlaceSearchResults"
+                        class="hidden mt-1.5 bg-zinc-950 border border-zinc-700 rounded-xl overflow-hidden max-h-44 overflow-y-auto shadow-xl"
+                    ></div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Start Date (วันที่เดินทาง)</label>
+                        <input type="date" id="tripDate" required class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-500" />
+                    </div>
+                    <div class="flex flex-col justify-end">
+                        <div class="flex gap-2">
+                            <button type="button" id="btnTripUseGps" class="flex-1 bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 text-xs text-brand-500 font-medium py-2.5 px-2 rounded-xl flex items-center justify-center gap-1 transition">
+                                <i class="ph-fill ph-navigation-arrow"></i> GPS ปัจจุบัน
+                            </button>
+                            <button type="button" id="btnTripPickOnMap" class="flex-1 bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 text-xs text-brand-500 font-medium py-2.5 px-2 rounded-xl flex items-center justify-center gap-1 transition">
+                                <i class="ph-fill ph-map-pin"></i> จิ้มบนแผนที่
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- GPS Coordinates -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[11px] text-zinc-500 mb-1">Latitude (ละติจูด)</label>
+                        <input type="number" step="any" id="tripLat" placeholder="18.5883" required class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2 text-sm font-mono text-white focus:outline-none focus:border-brand-500" />
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-zinc-500 mb-1">Longitude (ลองจิจูด)</label>
+                        <input type="number" step="any" id="tripLng" placeholder="98.4853" required class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2 text-sm font-mono text-white focus:outline-none focus:border-brand-500" />
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Description (บันทึกการเดินทาง)</label>
+                    <textarea id="tripDesc" rows="3" placeholder="บรรยากาศเส้นทาง สภาพถนน หรือความประทับใจ..." required class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-500"></textarea>
+                </div>
+
+                <!-- Multi-Photo Upload Section -->
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                            รูปภาพประจำทริป (Trip Photos)
+                        </label>
+                        <span id="tripPhotoCountBadge" class="text-[11px] text-brand-400 font-medium">เลือกได้หลายรูป</span>
+                    </div>
+
+                    <!-- Dropzone / Picker Button -->
+                    <label class="flex items-center gap-3 p-3 rounded-xl bg-zinc-950 border border-dashed border-zinc-700 hover:border-brand-500 cursor-pointer transition">
+                        <div id="tripPhotoIcon" class="w-12 h-12 rounded-lg bg-zinc-900 flex items-center justify-center text-brand-500 shrink-0">
+                            <i class="ph ph-camera-plus text-2xl"></i>
+                        </div>
+                        <div class="overflow-hidden flex-1">
+                            <p id="tripPhotoFilename" class="text-sm font-medium text-zinc-200 truncate">คลิกเพื่อเลือกรูปภาพ (เลือกได้หลายรูป)</p>
+                            <p class="text-xs text-zinc-500">เลือกได้หลายรูปพร้อมกัน (รูปแรกจะเป็นรูปหน้าปก)</p>
+                        </div>
+                        <span class="text-xs bg-zinc-900 text-brand-400 px-2.5 py-1 rounded-lg border border-zinc-700 font-semibold shrink-0">
+                            + เลือกรูป
+                        </span>
+                        <input type="file" id="tripPhotoFile" accept="image/*" multiple class="hidden" />
+                    </label>
+
+                    <!-- Previews of all selected photos -->
+                    <div id="tripPhotoPreviewsList" class="hidden mt-2.5 grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto p-1.5 bg-zinc-950/60 rounded-xl border border-zinc-800"></div>
+                </div>
+
+                <button type="submit" id="btnSubmitLogTrip" class="w-full bg-brand-500 hover:bg-brand-600 text-zinc-950 font-bold py-3 rounded-xl transition shadow-[0_0_15px_rgba(245,158,11,0.3)] flex items-center justify-center gap-2">
+                    <i class="ph-bold ph-check-circle text-lg"></i>
+                    <span>ปักหมุดและบันทึกทริปลงแผนที่</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==========================================================
+         3. Garage & Supabase Auth Modal (Login / Register / My Garage with Bio & Links)
+         ========================================================== -->
+    <div id="garageModal" class="hidden fixed inset-0 z-[2000] flex items-center justify-center p-4 sm:p-6 pointer-events-none">
+        <div id="garageBackdrop" class="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm pointer-events-auto"></div>
+
+        <div class="relative bg-zinc-900 border border-zinc-700 rounded-2xl overflow-hidden shadow-2xl w-full max-w-md pointer-events-auto flex flex-col max-h-[90vh]">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+                <div class="flex items-center gap-2">
+                    <i class="ph-fill ph-motorcycle text-brand-500 text-xl"></i>
+                    <h3 class="text-lg font-bold text-white">Rider Garage & Profile</h3>
+                </div>
+                <button id="btnCloseGarage" type="button" class="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:text-white">
+                    <i class="ph ph-x"></i>
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto">
+                <!-- Auth View (When Logged Out) -->
+                <div id="authContainer">
+                    <div class="grid grid-cols-2 gap-1 bg-zinc-950 p-1 rounded-xl border border-zinc-800 mb-5">
+                        <button type="button" id="tabLoginBtn" class="py-2 text-xs font-bold rounded-lg bg-brand-500 text-zinc-950 transition">เข้าสู่ระบบ (Login)</button>
+                        <button type="button" id="tabRegisterBtn" class="py-2 text-xs font-bold rounded-lg text-zinc-400 hover:text-white transition">สมัครสมาชิก (Register)</button>
+                    </div>
+
+                    <!-- Login Form -->
+                    <form id="loginForm" class="space-y-3.5">
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Email</label>
+                            <input type="email" id="loginEmail" placeholder="biker@example.com" required class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-500" />
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Password</label>
+                            <input type="password" id="loginPassword" placeholder="••••••••" required minlength="6" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-500" />
+                        </div>
+                        <button type="submit" id="btnLoginSubmit" class="w-full bg-brand-500 hover:bg-brand-600 text-zinc-950 font-bold py-2.5 rounded-xl transition">
+                            เข้าสู่ระบบ
+                        </button>
+                    </form>
+
+                    <!-- Register Form -->
+                    <form id="registerForm" class="hidden space-y-3">
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Rider Username (ชื่อนักบิด)</label>
+                            <input type="text" id="regUsername" placeholder="e.g. NightRider_TH" required class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-brand-500" />
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Bike Model (รุ่นรถคู่ใจ)</label>
+                            <input type="text" id="regBike" placeholder="e.g. Ducati Scrambler / Honda CB500X" required class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-brand-500" />
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Email</label>
+                            <input type="email" id="regEmail" placeholder="biker@example.com" required class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-brand-500" />
+                        </div>
+                        <div>
+                            <label class="block text-xs text-zinc-400 mb-1">Password (อย่างน้อย 6 ตัวอักษร)</label>
+                            <input type="password" id="regPassword" placeholder="••••••••" required minlength="6" class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-brand-500" />
+                        </div>
+                        <button type="submit" id="btnRegSubmit" class="w-full bg-brand-500 hover:bg-brand-600 text-zinc-950 font-bold py-2.5 rounded-xl transition">
+                            สร้างบัญชีนักบิด
+                        </button>
+                    </form>
+
+                    <!-- Google OAuth Sign-in Button -->
+                    <div class="relative my-4">
+                        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-zinc-800"></div></div>
+                        <div class="relative flex justify-center text-[11px] uppercase tracking-wider"><span class="bg-zinc-900 px-2 text-zinc-500 font-semibold">หรือเข้าสู่ระบบด้วย</span></div>
+                    </div>
+                    <button
+                        type="button"
+                        id="btnGoogleSignIn"
+                        class="w-full bg-white hover:bg-zinc-100 text-zinc-900 font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2.5 shadow-md border border-zinc-300 text-xs sm:text-sm active:scale-[0.99]"
+                    >
+                        <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                        </svg>
+                        <span>เข้าสู่ระบบด้วย Google (Sign in with Google)</span>
+                    </button>
+
+                    <!-- Google OAuth Notice (เมื่อ Google Provider ยังไม่ได้เปิดใน Supabase) -->
+                    <div id="googleSetupNotice" class="hidden mt-3 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/40 text-xs text-zinc-300 space-y-2 text-left">
+                        <div class="flex items-center gap-1.5 font-bold text-amber-400">
+                            <i class="ph-bold ph-warning-circle text-base shrink-0"></i>
+                            <span>ระบบ Google Login ต้องเปิดใน Supabase ก่อน</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-400 leading-relaxed">
+                            หากยังไม่ได้เปิดใช้ Google ใน Supabase คุณสามารถใช้อีเมล/รหัสผ่านด้านบนเข้าสู่ระบบได้ทันที
+                        </p>
+                        <div class="pt-1">
+                            <a href="https://supabase.com/dashboard/project/yduddaoltelgtqowvzlx/auth/providers" target="_blank" class="text-amber-400 hover:text-amber-300 underline font-medium inline-flex items-center gap-1 text-[11px]">
+                                <span>ไปหน้าเปิดสิทธิ์ Google ใน Supabase Dashboard</span>
+                                <i class="ph ph-arrow-square-out"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Logged-In Garage View (พร้อมข้อมูลโปรไฟล์ + ลิงก์โปรไฟล์ + ปุ่มแก้ไขโปรไฟล์) -->
+                <div id="garageProfileContainer" class="hidden space-y-5">
+                    <div class="bg-zinc-950 border border-zinc-800 rounded-xl p-4 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div id="garageAvatarPreview" class="w-12 h-12 rounded-full bg-brand-500/20 border-2 border-brand-500 flex items-center justify-center text-brand-500 overflow-hidden shrink-0 relative">
+                                    <span id="garageAvatarInitials"><i class="ph-fill ph-motorcycle text-2xl"></i></span>
+                                    <img id="garageAvatarImg" src="" class="hidden w-full h-full object-cover" alt="Garage Avatar" />
+                                </div>
+                                <div>
+                                    <h4 id="garageUsername" class="font-bold text-white text-base">Rider</h4>
+                                    <p id="garageBikeModel" class="text-xs text-brand-500 font-semibold">Bike Model</p>
+                                    <p id="garageEmail" class="text-xs text-zinc-500"></p>
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-1.5 items-end">
+                                <button
+                                    id="btnGarageOpenEditProfile"
+                                    type="button"
+                                    class="text-xs text-brand-400 hover:text-brand-300 bg-zinc-900 border border-zinc-700 px-2.5 py-1 rounded-lg flex items-center gap-1 transition"
+                                >
+                                    <i class="ph ph-pencil-simple"></i> แก้ไขโปรไฟล์/รูปภาพ
+                                </button>
+                                <button id="btnLogout" type="button" class="text-[11px] text-zinc-400 hover:text-red-400 px-2 py-0.5 transition">
+                                    ออกจากระบบ
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- ลิงก์ของนักบิดในหน้า Garage -->
+                        <div id="garageProfileLinks" class="flex flex-wrap gap-1.5"></div>
+                    </div>
+
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-semibold uppercase tracking-wider text-zinc-400">ทริปทั้งหมดบนแผนที่ (<span id="garageTripCount">0</span>)</span>
+                            <button id="btnGarageNewTrip" type="button" class="text-xs text-brand-500 hover:text-brand-400 font-semibold">+ เพิ่มทริปใหม่</button>
+                        </div>
+                        <div id="garageTripsList" class="space-y-2 max-h-60 overflow-y-auto pr-1"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================================
+         4. GPS Permission Request & Setup Modal (ขออนุญาตเปิดใช้งาน GPS)
+         ========================================================== -->
+    <div id="gpsPermissionModal" class="hidden fixed inset-0 z-[2600] flex items-center justify-center p-4 sm:p-6 pointer-events-none">
+        <div id="gpsPermissionBackdrop" class="absolute inset-0 bg-zinc-950/85 backdrop-blur-md pointer-events-auto"></div>
+
+        <div class="relative bg-zinc-900 border border-brand-500/40 rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(245,158,11,0.2)] w-full max-w-md pointer-events-auto flex flex-col max-h-[92vh]">
+            <!-- Header with glowing radar icon -->
+            <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-zinc-950/70">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-brand-500/20 border border-brand-500/60 flex items-center justify-center text-brand-500 shrink-0">
+                        <i class="ph-fill ph-navigation-arrow text-xl animate-pulse"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-white flex items-center gap-2">
+                            <span>ขออนุญาตเข้าถึง GPS</span>
+                            <span id="modalGpsStatusPill" class="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-zinc-800 text-zinc-400">ตรวจสอบ...</span>
+                        </h3>
+                        <p class="text-xs text-zinc-400">เปิดใช้งานตำแหน่งเพื่อประสบการณ์ขี่รถเต็มรูปแบบ</p>
+                    </div>
+                </div>
+                <button id="btnCloseGpsModal" type="button" class="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:text-white transition">
+                    <i class="ph ph-x text-base"></i>
+                </button>
+            </div>
+
+            <!-- Body -->
+            <div class="p-5 sm:p-6 overflow-y-auto space-y-4">
+                <!-- Visual highlight card -->
+                <div class="p-3.5 rounded-xl bg-gradient-to-br from-amber-500/10 via-zinc-950 to-zinc-950 border border-amber-500/30 space-y-1.5">
+                    <div class="flex items-center gap-2 text-brand-400 font-bold text-xs uppercase tracking-wider">
+                        <i class="ph-fill ph-shield-check text-base"></i> ทำไม RideMap ถึงต้องขอสิทธิ์ GPS?
+                    </div>
+                    <p class="text-xs text-zinc-300 leading-relaxed">
+                        RideMap ใช้พิกัดดาวเทียมเพื่อช่วยเหลือนักบิด โดยไม่เก็บข้อมูลการเดินทางส่วนตัวของคุณหากคุณไม่ได้กดปักหมุดบันทึกทริป
+                    </p>
+                </div>
+
+                <!-- 3 Key Features -->
+                <div class="space-y-2.5">
+                    <div class="flex items-start gap-3 p-3 rounded-xl bg-zinc-950 border border-zinc-800/80">
+                        <div class="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                            <i class="ph-fill ph-crosshair text-lg"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-bold text-white">แสดงจุดที่คุณอยู่บนแผนที่แบบ Real-time</h4>
+                            <p class="text-[11px] text-zinc-400 mt-0.5">จุดสีน้ำเงินพร้อมวงแหวนรัศมีความแม่นยำ (Accuracy) ช่วยให้รู้ว่าตอนนี้อยู่บนเส้นทางไหน</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-3 p-3 rounded-xl bg-zinc-950 border border-zinc-800/80">
+                        <div class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                            <i class="ph-fill ph-map-pin-line text-lg"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-bold text-white">ปักหมุดจุดเริ่มต้นทริปและจุดแวะพักด่วน</h4>
+                            <p class="text-[11px] text-zinc-400 mt-0.5">กดปุ่ม "GPS ปัจจุบัน" ตอนสร้างทริปหรือ Checkpoint พิกัดจะถูกกรอกทันทีโดยไม่ต้องพิมพ์เอง</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-3 p-3 rounded-xl bg-zinc-950 border border-zinc-800/80">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
+                            <i class="ph-fill ph-compass text-lg"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-bold text-white">สำรวจทริปยอดฮิตใกล้ตัว</h4>
+                            <p class="text-[11px] text-zinc-400 mt-0.5">ดูระยะห่างจากตำแหน่งปัจจุบันไปยังเส้นทางขี่รถสวยๆ และจุดพักรถยอดนิยม</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="space-y-2 pt-1">
+                    <button
+                        type="button"
+                        id="btnGpsModalAllow"
+                        class="w-full bg-brand-500 hover:bg-brand-600 text-zinc-950 font-bold py-3 px-4 rounded-xl transition shadow-[0_0_20px_rgba(245,158,11,0.35)] flex items-center justify-center gap-2 text-sm"
+                    >
+                        <i class="ph-bold ph-navigation-arrow text-lg"></i>
+                        <span>อนุญาตและเปิดใช้งาน GPS ตอนนี้</span>
+                    </button>
+                    <button
+                        type="button"
+                        id="btnGpsModalDismiss"
+                        class="w-full bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-white font-medium py-2.5 px-4 rounded-xl transition text-xs flex items-center justify-center gap-1.5"
+                    >
+                        <span>ไว้คราวหลัง (เลือกปักหมุดพิกัดเองบนแผนที่)</span>
+                    </button>
+                </div>
+
+                <!-- Collapsible Troubleshooting Guide (วิธีปลดบล็อกหากเบราว์เซอร์ไม่อนุญาต) -->
+                <div class="border border-zinc-800 rounded-xl overflow-hidden bg-zinc-950/70">
+                    <button
+                        type="button"
+                        id="btnToggleGpsTroubleshoot"
+                        class="w-full px-4 py-2.5 text-xs font-semibold text-zinc-300 hover:text-white flex items-center justify-between transition"
+                    >
+                        <span class="flex items-center gap-1.5 text-brand-400">
+                            <i class="ph-bold ph-warning-circle text-base"></i> หากถูกปฏิเสธ หรือเบราว์เซอร์ไม่ขึ้นถาม?
+                        </span>
+                        <i id="gpsTroubleshootChevron" class="ph-bold ph-caret-down text-zinc-500 transition-transform"></i>
+                    </button>
+
+                    <div id="gpsTroubleshootContent" class="hidden p-4 pt-1 space-y-3 text-xs text-zinc-300 border-t border-zinc-800/80">
+                        <div class="space-y-1">
+                            <div class="font-bold text-white flex items-center gap-1.5">
+                                <i class="ph-bold ph-browser text-brand-400"></i> Google Chrome / Microsoft Edge (คอมพิวเตอร์)
+                            </div>
+                            <ol class="list-decimal list-inside text-zinc-400 space-y-1 pl-1 text-[11px] leading-relaxed">
+                                <li>คลิกที่ไอคอน 🔒 <b>แม่กุญแจ</b> หรือ <b>การตั้งค่าเว็บไซต์ (Site Settings)</b> ตรงแถบ URL ด้านบนสุด</li>
+                                <li>มองหาหัวข้อ <b>"ตำแหน่ง (Location)"</b> แล้วเปลี่ยนเป็น <b>"อนุญาต (Allow)"</b></li>
+                                <li>กดรีเฟรชหน้าเว็บ หรือกดปุ่ม <i>"อนุญาตและเปิดใช้งาน GPS ตอนนี้"</i> อีกครั้ง</li>
+                            </ol>
+                        </div>
+
+                        <div class="space-y-1 border-t border-zinc-800/60 pt-2.5">
+                            <div class="font-bold text-white flex items-center gap-1.5">
+                                <i class="ph-bold ph-device-mobile text-brand-400"></i> มือถือ iPhone / iPad (Safari)
+                            </div>
+                            <ol class="list-decimal list-inside text-zinc-400 space-y-1 pl-1 text-[11px] leading-relaxed">
+                                <li>เปิดแอป <b>การตั้งค่า (Settings)</b> ของ iPhone > <b>ความเป็นส่วนตัวและความปลอดภัย (Privacy)</b></li>
+                                <li>เลือก <b>บริการตำแหน่งที่ตั้ง (Location Services)</b> > ตรวจสอบว่าเปิดอยู่</li>
+                                <li>เลื่อนลงเลือก <b>Safari เว็บไซต์</b> แล้วติ๊กเลือก <b>"ขณะใช้แอป"</b></li>
+                            </ol>
+                        </div>
+
+                        <div class="space-y-1 border-t border-zinc-800/60 pt-2.5">
+                            <div class="font-bold text-white flex items-center gap-1.5">
+                                <i class="ph-bold ph-device-mobile-camera text-brand-400"></i> มือถือ Android (Chrome)
+                            </div>
+                            <ol class="list-decimal list-inside text-zinc-400 space-y-1 pl-1 text-[11px] leading-relaxed">
+                                <li>แตะจุดสามจุด <b>⋮</b> มุมขวาบน > <b>การตั้งค่า (Settings)</b> > <b>การตั้งค่าไซต์ (Site settings)</b></li>
+                                <li>เลือก <b>ตำแหน่ง (Location)</b> แล้วกดเปิดใช้งาน พร้อมอนุญาตให้เว็บไซต์นี้</li>
+                            </ol>
+                        </div>
+
+                        <div class="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-200/90 leading-relaxed">
+                            💡 <b>หมายเหตุสำหรับการเปิดในอุปกรณ์อื่นผ่าน Wi-Fi (HTTP):</b><br/>
+                            เบราว์เซอร์มือถือรุ่นใหม่ส่วนใหญ่จะจำกัดการขอพิกัด GPS ผ่าน Geolocation API เฉพาะ <code>https://</code> หรือ <code>localhost</code> หากท่านเข้าผ่าน IP เช่น <code>http://192.168.x.x:5500</code> มือถืออาจปิดกั้นสิทธิ์นี้ ท่านยังคงสามารถใช้โหมดคลิกเพื่อปักหมุดบนแผนที่ได้ตามปกติครับ
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================================
+         Full-Screen Image Lightbox Modal (ระบบกดดูรูปภาพขนาดเต็ม + ซูม + สไลด์เปลี่ยนรูป)
+         ========================================================== -->
+    <div id="imageLightboxModal" class="hidden fixed inset-0 z-[3500] flex items-center justify-center bg-black/95 backdrop-blur-md select-none transition-all duration-300">
+        <!-- Close Button (Top-Right) -->
+        <button
+            type="button"
+            id="btnLightboxClose"
+            class="absolute top-4 right-4 z-50 w-11 h-11 rounded-full bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white flex items-center justify-center transition shadow-2xl backdrop-blur-md text-lg active:scale-95"
+            title="ปิด (Esc)"
+        >
+            <i class="ph-bold ph-x"></i>
+        </button>
+
+        <!-- Top Header: Title & Counter -->
+        <div class="absolute top-4 left-4 right-16 z-40 flex items-center gap-2 overflow-hidden pointer-events-none">
+            <div class="bg-zinc-900/85 border border-zinc-700/80 px-3.5 py-1.5 rounded-full backdrop-blur-md flex items-center gap-2 shadow-xl">
+                <span id="lightboxPhotoIndex" class="text-xs font-bold text-brand-400">รูปที่ 1 / 1</span>
+                <span class="text-zinc-600 text-xs">|</span>
+                <span id="lightboxPhotoTitle" class="text-xs text-zinc-200 font-medium truncate max-w-[160px] sm:max-w-md">รูปภาพทริป</span>
+            </div>
+            <a
+                id="lightboxViewOriginal"
+                href="#"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="เปิดรูปขนาดเต็มในแท็บใหม่"
+                class="pointer-events-auto bg-zinc-900/85 hover:bg-zinc-800 border border-zinc-700/80 px-2.5 py-1.5 rounded-full backdrop-blur-md text-xs text-zinc-300 hover:text-brand-400 flex items-center gap-1 transition shadow-xl shrink-0"
+            >
+                <i class="ph-bold ph-arrow-square-out text-sm"></i>
+                <span class="hidden sm:inline">เปิดไฟล์ต้นฉบับ</span>
+            </a>
+            <button
+                type="button"
+                id="btnLightboxDeletePhoto"
+                title="ลบรูปภาพนี้ออกจากทริป"
+                class="hidden pointer-events-auto bg-red-600/90 hover:bg-red-600 text-white border border-red-500/80 px-2.5 py-1.5 rounded-full backdrop-blur-md text-xs flex items-center gap-1 transition shadow-xl shrink-0 active:scale-95"
+            >
+                <i class="ph-bold ph-trash text-sm"></i>
+                <span class="hidden sm:inline">ลบรูปนี้</span>
+            </button>
+        </div>
+
+        <!-- Navigation: Previous Photo Button -->
+        <button
+            type="button"
+            id="btnLightboxPrev"
+            class="hidden absolute left-3 sm:left-6 z-40 w-12 h-12 rounded-full bg-zinc-900/85 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 hover:text-brand-400 flex items-center justify-center transition shadow-2xl backdrop-blur-md text-xl active:scale-95"
+            title="รูปก่อนหน้า (ลูกศรซ้าย)"
+        >
+            <i class="ph-bold ph-caret-left"></i>
+        </button>
+
+        <!-- Navigation: Next Photo Button -->
+        <button
+            type="button"
+            id="btnLightboxNext"
+            class="hidden absolute right-3 sm:right-6 z-40 w-12 h-12 rounded-full bg-zinc-900/85 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 hover:text-brand-400 flex items-center justify-center transition shadow-2xl backdrop-blur-md text-xl active:scale-95"
+            title="รูปถัดไป (ลูกศรขวา)"
+        >
+            <i class="ph-bold ph-caret-right"></i>
+        </button>
+
+        <!-- Image Container -->
+        <div id="lightboxImageContainer" class="relative max-w-[95vw] max-h-[86vh] flex items-center justify-center p-2">
+            <img
+                id="lightboxMainImage"
+                src=""
+                alt="Full View Photo"
+                class="max-w-full max-h-[82vh] w-auto h-auto object-contain rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.9)] transition-transform duration-200"
+            />
+        </div>
+
+        <!-- Bottom Thumbnails Strip (If multiple photos) -->
+        <div id="lightboxThumbsStrip" class="hidden absolute bottom-3 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 max-w-[92vw] overflow-x-auto p-1.5 bg-zinc-950/85 border border-zinc-800/80 rounded-2xl backdrop-blur-md">
+            <!-- Dynamic thumbnails -->
+        </div>
+    </div>
+
+    <!-- Main Application Module -->
+    <script type="module" src="app.js"></script>
+</body>
+</html>
