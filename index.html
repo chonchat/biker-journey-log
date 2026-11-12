@@ -112,7 +112,7 @@
 
             <!-- Center: Google Maps Style Search Bar -->
             <div class="relative flex-1 max-w-md mx-auto w-full order-3 md:order-2 mt-1 sm:mt-0">
-                <form id="mapSearchForm" class="relative flex items-center">
+                <form id="mapSearchForm" onsubmit="event.preventDefault()" class="relative flex items-center">
                     <i class="ph ph-magnifying-glass text-zinc-400 text-base absolute left-3 pointer-events-none"></i>
                     <input
                         type="text"

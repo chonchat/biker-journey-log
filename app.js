@@ -3295,12 +3295,6 @@ function renderNotificationsUI() {
 
     notificationList.appendChild(item);
   });
-        }, 400);
-      }
-    });
-
-    notificationList.appendChild(item);
-  });
 }
 
 async function markAllNotificationsAsRead() {
