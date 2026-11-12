@@ -102,3 +102,55 @@ body {
   background-color: rgba(59, 130, 246, 0.45);
   animation: pulse-ring 1.8s cubic-bezier(0.24, 0, 0.38, 1) infinite;
 }
+
+/* ============================================================
+   Mobile Responsiveness & Touch Experience
+   ============================================================ */
+@supports (padding-top: env(safe-area-inset-top)) {
+  body {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+}
+
+/* Prevent auto-zoom on input focus in iOS Safari */
+@media screen and (max-width: 640px) {
+  input[type='text'],
+  input[type='password'],
+  input[type='email'],
+  input[type='date'],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Touch-friendly Leaflet controls on phones */
+  .leaflet-control-zoom {
+    margin-right: 12px !important;
+    margin-bottom: 86px !important;
+  }
+  .leaflet-control-layers {
+    margin-left: 12px !important;
+    margin-bottom: 24px !important;
+  }
+  .leaflet-control-zoom-in,
+  .leaflet-control-zoom-out {
+    width: 38px !important;
+    height: 38px !important;
+    line-height: 38px !important;
+    font-size: 17px !important;
+  }
+}
+
+/* Momentum scrolling for all scrollable panels on touch devices */
+.overflow-y-auto,
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Smooth button tap feedback */
+button {
+  -webkit-tap-highlight-color: transparent;
+}

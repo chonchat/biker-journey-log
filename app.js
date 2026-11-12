@@ -125,6 +125,7 @@ const pickMapBanner = document.getElementById('pickMapBanner');
 const btnCancelPickMap = document.getElementById('btnCancelPickMap');
 const btnResetMapView = document.getElementById('btnResetMapView');
 const btnOpenLogTrip = document.getElementById('btnOpenLogTrip');
+const btnMobileLogTrip = document.getElementById('btnMobileLogTrip');
 const btnOpenGarage = document.getElementById('btnOpenGarage');
 const navGarageLabel = document.getElementById('navGarageLabel');
 
@@ -2878,6 +2879,9 @@ function closeLogTripModal() {
 }
 
 btnOpenLogTrip.addEventListener('click', openLogTripModal);
+if (btnMobileLogTrip) {
+  btnMobileLogTrip.addEventListener('click', openLogTripModal);
+}
 btnCloseLogTrip.addEventListener('click', closeLogTripModal);
 logTripBackdrop.addEventListener('click', closeLogTripModal);
 

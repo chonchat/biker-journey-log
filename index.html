@@ -2,7 +2,10 @@
 <html lang="th" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#09090b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Biker Journey Log — RideMap</title>
     
     <!-- Tailwind CSS -->
@@ -81,42 +84,42 @@
     </div>
 
     <!-- Navigation Bar + Google Maps Style Search Bar -->
-    <nav class="absolute w-full z-[1000] top-0 start-0 border-b border-zinc-800/60 bg-zinc-950/80 backdrop-blur-md pointer-events-auto">
-        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+    <nav class="absolute w-full z-[1000] top-0 start-0 border-b border-zinc-800/60 bg-zinc-950/85 backdrop-blur-md pointer-events-auto pt-[env(safe-area-inset-top,0px)]">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3">
             <!-- Left: Sidebar Toggle Button + Refresh Button + Brand Logo -->
-            <div class="flex items-center gap-2 shrink-0">
+            <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
                 <button
                     id="btnOpenSidebar"
                     type="button"
                     title="เปิดแถบเมนูด้านข้าง (โปรไฟล์ / ตั้งค่า / ข้อเสนอแนะ / ติดต่อ)"
-                    class="w-10 h-10 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-brand-500/60 text-zinc-200 hover:text-brand-400 flex items-center justify-center transition shadow-md"
+                    class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-brand-500/60 text-zinc-200 hover:text-brand-400 flex items-center justify-center transition shadow-md active:scale-95"
                 >
-                    <i class="ph-bold ph-list text-xl"></i>
+                    <i class="ph-bold ph-list text-lg sm:text-xl"></i>
                 </button>
                 <button
                     id="btnHeaderRefresh"
                     type="button"
                     title="รีเฟรชข้อมูลทริปและแผนที่ล่าสุด"
-                    class="w-10 h-10 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-brand-500/60 text-zinc-300 hover:text-brand-400 flex items-center justify-center transition shadow-md active:scale-95"
+                    class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-brand-500/60 text-zinc-300 hover:text-brand-400 flex items-center justify-center transition shadow-md active:scale-95"
                 >
-                    <i id="iconHeaderRefresh" class="ph-bold ph-arrows-clockwise text-lg"></i>
+                    <i id="iconHeaderRefresh" class="ph-bold ph-arrows-clockwise text-base sm:text-lg"></i>
                 </button>
-                <a href="#" id="btnResetMapView" class="flex items-center space-x-1.5 drop-shadow-md">
+                <a href="#" id="btnResetMapView" class="flex items-center space-x-1 drop-shadow-md">
                     <i class="ph-fill ph-map-trifold text-2xl sm:text-3xl text-brand-500"></i>
-                    <span class="self-center text-lg sm:text-xl font-bold whitespace-nowrap tracking-wide">Ride<span class="text-brand-500">Map</span></span>
+                    <span class="self-center text-base sm:text-xl font-bold whitespace-nowrap tracking-wide">Ride<span class="text-brand-500">Map</span></span>
                 </a>
             </div>
 
             <!-- Center: Google Maps Style Search Bar -->
-            <div class="relative flex-1 max-w-md mx-auto w-full order-3 md:order-2">
+            <div class="relative flex-1 max-w-md mx-auto w-full order-3 md:order-2 mt-1 sm:mt-0">
                 <form id="mapSearchForm" class="relative flex items-center">
-                    <i class="ph ph-magnifying-glass text-zinc-400 text-lg absolute left-3.5 pointer-events-none"></i>
+                    <i class="ph ph-magnifying-glass text-zinc-400 text-base absolute left-3 pointer-events-none"></i>
                     <input
                         type="text"
                         id="mapSearchInput"
                         autocomplete="off"
-                        placeholder="ค้นหาสถานที่เหมือน Google Maps (เช่น ดอยอินทนนท์, เขาค้อ, แม่กำปอง)..."
-                        class="w-full bg-zinc-900/95 border border-zinc-700/80 focus:border-brand-500 rounded-full pl-10 pr-20 py-2 text-sm text-white placeholder-zinc-400 focus:outline-none shadow-lg transition"
+                        placeholder="ค้นหาสถานที่ หรือจุดเช็คอิน (เช่น ดอยอินทนนท์, เขาค้อ)..."
+                        class="w-full bg-zinc-900/95 border border-zinc-700/80 focus:border-brand-500 rounded-full pl-9 pr-16 py-1.5 sm:py-2 text-sm text-white placeholder-zinc-400 focus:outline-none shadow-lg transition"
                     />
                     <button
                         type="button"
@@ -129,7 +132,7 @@
                     <button
                         type="submit"
                         id="btnSubmitSearch"
-                        class="absolute right-1.5 bg-brand-500 hover:bg-brand-600 text-zinc-950 font-bold text-xs px-3 py-1.5 rounded-full transition"
+                        class="absolute right-1.5 bg-brand-500 hover:bg-brand-600 text-zinc-950 font-bold text-xs px-3 py-1 sm:py-1.5 rounded-full transition active:scale-95"
                     >
                         ค้นหา
                     </button>
@@ -138,12 +141,12 @@
                 <!-- Search Suggestions / Results Dropdown -->
                 <div
                     id="mapSearchResults"
-                    class="hidden absolute left-0 right-0 mt-2 bg-zinc-900/95 border border-zinc-700 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl max-h-80 overflow-y-auto z-[2500]"
+                    class="hidden absolute left-0 right-0 mt-2 bg-zinc-900/95 border border-zinc-700 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl max-h-64 sm:max-h-80 overflow-y-auto z-[2500]"
                 ></div>
             </div>
 
             <!-- Right: Action Buttons -->
-            <div class="flex order-2 md:order-3 space-x-2 items-center shrink-0">
+            <div class="flex order-2 md:order-3 space-x-1.5 sm:space-x-2 items-center shrink-0">
                 <!-- Notification Bell Button & Dropdown -->
                 <div class="relative">
                     <button
@@ -162,7 +165,7 @@
                     <!-- Notification Dropdown Menu -->
                     <div
                         id="notificationDropdown"
-                        class="hidden absolute right-0 mt-2 w-80 sm:w-96 bg-zinc-950/95 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl z-[2500] flex flex-col max-h-[460px]"
+                        class="hidden absolute right-0 mt-2 w-[calc(100vw-24px)] max-w-sm sm:w-96 bg-zinc-950/95 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-xl z-[2500] flex flex-col max-h-[460px]"
                     >
                         <div class="px-4 py-3 bg-zinc-900/90 border-b border-zinc-800/80 flex items-center justify-between">
                             <div class="flex items-center gap-2">
@@ -187,13 +190,13 @@
                 </div>
 
                 <!-- Log Trip Button -->
-                <button id="btnOpenLogTrip" type="button" class="text-zinc-200 hover:text-white font-medium rounded-lg text-sm px-3.5 py-2 transition flex items-center gap-2 bg-zinc-900 border border-zinc-800 hover:border-brand-500/50 shadow-lg">
-                    <i class="ph ph-plus-circle text-lg text-brand-500"></i>
+                <button id="btnOpenLogTrip" type="button" class="text-zinc-200 hover:text-white font-medium rounded-xl text-xs sm:text-sm px-2.5 sm:px-3.5 py-2 transition flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 hover:border-brand-500/50 shadow-lg active:scale-95">
+                    <i class="ph ph-plus-circle text-base sm:text-lg text-brand-500"></i>
                     <span class="hidden sm:inline">Log Trip</span>
                 </button>
                 <!-- Garage / Auth Button -->
-                <button id="btnOpenGarage" type="button" class="text-zinc-950 bg-brand-500 hover:bg-brand-600 font-bold rounded-lg text-sm px-3.5 py-2 transition flex items-center gap-2 shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:shadow-[0_0_20px_rgba(245,158,11,0.5)]">
-                    <i class="ph ph-motorcycle text-lg"></i>
+                <button id="btnOpenGarage" type="button" class="text-zinc-950 bg-brand-500 hover:bg-brand-600 font-bold rounded-xl text-xs sm:text-sm px-2.5 sm:px-3.5 py-2 transition flex items-center gap-1.5 shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:shadow-[0_0_20px_rgba(245,158,11,0.5)] active:scale-95">
+                    <i class="ph ph-motorcycle text-base sm:text-lg"></i>
                     <span id="navGarageLabel" class="hidden sm:inline">Garage</span>
                 </button>
             </div>
@@ -673,23 +676,35 @@
         id="btnMyLocation"
         type="button"
         title="ไปยังตำแหน่งปัจจุบันของฉัน (My Location)"
-        class="fixed bottom-24 right-2.5 z-[1000] w-11 h-11 rounded-full bg-zinc-900/95 hover:bg-zinc-800 text-zinc-100 hover:text-brand-500 border border-zinc-700 shadow-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 backdrop-blur-md"
+        class="fixed bottom-24 right-3.5 z-[1000] w-12 h-12 rounded-full bg-zinc-900/95 hover:bg-zinc-800 text-zinc-100 hover:text-brand-500 border border-zinc-700/80 shadow-2xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 backdrop-blur-md"
     >
         <i id="myLocationIcon" class="ph-bold ph-crosshair text-xl text-brand-500"></i>
+    </button>
+
+    <!-- Floating Mobile "Log Trip" Pill Button (Quick Thumb-Reach on Mobile) -->
+    <button
+        id="btnMobileLogTrip"
+        type="button"
+        class="sm:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-2 bg-gradient-to-r from-brand-500 to-amber-500 text-zinc-950 font-black text-sm px-6 py-3 rounded-full shadow-[0_0_30px_rgba(245,158,11,0.55)] border border-brand-400/40 active:scale-95 transition-all"
+    >
+        <i class="ph-bold ph-plus-circle text-xl"></i>
+        <span>บันทึกทริปนี้</span>
     </button>
 
     <!-- ==========================================================
          1. Custom Tailwind Modal for Trip Details (Profile + Bio/Links + Likes + Comments + Replies)
          ========================================================== -->
-    <div id="detailModal" class="hidden fixed inset-0 z-[2000] flex items-center justify-center p-4 sm:p-6 pointer-events-none">
+    <div id="detailModal" class="hidden fixed inset-0 z-[2000] flex items-end sm:items-center justify-center p-0 sm:p-6 pointer-events-none">
         <!-- Backdrop -->
         <div id="detailBackdrop" class="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm pointer-events-auto transition-opacity"></div>
 
         <!-- Modal Content -->
-        <div id="detailModalBox" class="relative bg-zinc-900 border border-zinc-700 rounded-2xl overflow-hidden shadow-2xl w-full max-w-lg pointer-events-auto transform transition-all duration-200 scale-95 opacity-0 flex flex-col max-h-[90vh]">
+        <div id="detailModalBox" class="relative bg-zinc-900 border border-zinc-700/80 rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl w-full max-w-lg pointer-events-auto transform transition-all duration-200 scale-95 opacity-0 flex flex-col max-h-[92vh] sm:max-h-[88vh]">
+            <!-- Mobile Top Pull/Swipe Indicator -->
+            <div class="w-12 h-1.5 rounded-full bg-zinc-600/60 mx-auto mt-2.5 mb-1 sm:hidden shrink-0"></div>
             <!-- Close Button -->
-            <button id="btnCloseDetail" type="button" class="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-zinc-950/60 text-white hover:bg-brand-500 hover:text-zinc-950 transition backdrop-blur-md shadow-lg border border-zinc-700/50 hover:border-brand-400">
-                <i class="ph ph-x text-sm font-bold"></i>
+            <button id="btnCloseDetail" type="button" class="absolute top-4 right-4 z-10 w-9 h-9 flex items-center justify-center rounded-full bg-zinc-950/70 text-white hover:bg-brand-500 hover:text-zinc-950 transition backdrop-blur-md shadow-lg border border-zinc-700/50 hover:border-brand-400 active:scale-95">
+                <i class="ph ph-x text-base font-bold"></i>
             </button>
 
             <!-- Image Header (กดเพื่อดูรูปภาพขนาดเต็ม) -->
@@ -704,7 +719,7 @@
             </div>
 
             <!-- Body -->
-            <div class="p-6 overflow-y-auto relative -mt-12 space-y-4">
+            <div class="p-4 sm:p-6 overflow-y-auto relative -mt-10 sm:-mt-12 space-y-4">
                 <div class="flex items-center justify-between gap-2">
                     <div class="flex items-center gap-2 text-brand-500 text-sm font-bold drop-shadow-md bg-zinc-900/80 w-fit px-3 py-1 rounded-full backdrop-blur-sm border border-zinc-700/50">
                         <i class="ph-fill ph-calendar-blank"></i>
@@ -859,21 +874,23 @@
     <!-- ==========================================================
          1.5 Edit Trip Modal (แก้ไขโพสต์ทริปของตัวเอง)
          ========================================================== -->
-    <div id="editTripModal" class="hidden fixed inset-0 z-[2100] flex items-center justify-center p-4 sm:p-6 pointer-events-none">
+    <div id="editTripModal" class="hidden fixed inset-0 z-[2100] flex items-end sm:items-center justify-center p-0 sm:p-6 pointer-events-none">
         <div id="editTripBackdrop" class="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm pointer-events-auto"></div>
 
-        <div class="relative bg-zinc-900 border border-zinc-700 rounded-2xl overflow-hidden shadow-2xl w-full max-w-lg pointer-events-auto flex flex-col max-h-[90vh]">
-            <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+        <div class="relative bg-zinc-900 border border-zinc-700/80 rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl w-full max-w-lg pointer-events-auto flex flex-col max-h-[92vh] sm:max-h-[90vh]">
+            <!-- Mobile Top Pull/Swipe Indicator -->
+            <div class="w-12 h-1.5 rounded-full bg-zinc-600/60 mx-auto mt-2.5 mb-1 sm:hidden shrink-0"></div>
+            <div class="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-zinc-800">
                 <div class="flex items-center gap-2">
                     <i class="ph-fill ph-pencil-simple text-brand-500 text-xl"></i>
-                    <h3 class="text-lg font-bold text-white">แก้ไขโพสต์ทริป (Edit Trip)</h3>
+                    <h3 class="text-base sm:text-lg font-bold text-white">แก้ไขโพสต์ทริป (Edit Trip)</h3>
                 </div>
-                <button id="btnCloseEditTrip" type="button" class="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:text-white">
+                <button id="btnCloseEditTrip" type="button" class="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:text-white active:scale-95">
                     <i class="ph ph-x"></i>
                 </button>
             </div>
 
-            <form id="formEditTrip" class="p-6 overflow-y-auto space-y-4">
+            <form id="formEditTrip" class="p-4 sm:p-6 overflow-y-auto space-y-4">
                 <input type="hidden" id="editTripId" />
                 <div>
                     <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Trip Title (ชื่อทริป)</label>
@@ -937,21 +954,23 @@
     <!-- ==========================================================
          2. Log Trip Modal (Create New Trip + Search Place / GPS / Photo)
          ========================================================== -->
-    <div id="logTripModal" class="hidden fixed inset-0 z-[2000] flex items-center justify-center p-4 sm:p-6 pointer-events-none">
+    <div id="logTripModal" class="hidden fixed inset-0 z-[2000] flex items-end sm:items-center justify-center p-0 sm:p-6 pointer-events-none">
         <div id="logTripBackdrop" class="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm pointer-events-auto"></div>
 
-        <div class="relative bg-zinc-900 border border-zinc-700 rounded-2xl overflow-hidden shadow-2xl w-full max-w-lg pointer-events-auto flex flex-col max-h-[90vh]">
-            <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+        <div class="relative bg-zinc-900 border border-zinc-700/80 rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl w-full max-w-lg pointer-events-auto flex flex-col max-h-[92vh] sm:max-h-[90vh]">
+            <!-- Mobile Top Pull/Swipe Indicator -->
+            <div class="w-12 h-1.5 rounded-full bg-zinc-600/60 mx-auto mt-2.5 mb-1 sm:hidden shrink-0"></div>
+            <div class="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-zinc-800">
                 <div class="flex items-center gap-2">
                     <i class="ph-fill ph-plus-circle text-brand-500 text-xl"></i>
-                    <h3 class="text-lg font-bold text-white">Log New Biker Trip (บันทึกทริปใหม่)</h3>
+                    <h3 class="text-base sm:text-lg font-bold text-white">Log New Biker Trip (บันทึกทริปใหม่)</h3>
                 </div>
-                <button id="btnCloseLogTrip" type="button" class="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:text-white">
+                <button id="btnCloseLogTrip" type="button" class="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:text-white active:scale-95">
                     <i class="ph ph-x"></i>
                 </button>
             </div>
 
-            <form id="formLogTrip" class="p-6 overflow-y-auto space-y-4">
+            <form id="formLogTrip" class="p-4 sm:p-6 overflow-y-auto space-y-4">
                 <div>
                     <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Trip Title (ชื่อทริป)</label>
                     <input type="text" id="tripTitle" placeholder="เช่น ทริปพิชิตดอยอินทนนท์ / โค้งแม่ฮ่องสอน" required class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-500" />
@@ -1057,21 +1076,23 @@
     <!-- ==========================================================
          3. Garage & Supabase Auth Modal (Login / Register / My Garage with Bio & Links)
          ========================================================== -->
-    <div id="garageModal" class="hidden fixed inset-0 z-[2000] flex items-center justify-center p-4 sm:p-6 pointer-events-none">
+    <div id="garageModal" class="hidden fixed inset-0 z-[2000] flex items-end sm:items-center justify-center p-0 sm:p-6 pointer-events-none">
         <div id="garageBackdrop" class="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm pointer-events-auto"></div>
 
-        <div class="relative bg-zinc-900 border border-zinc-700 rounded-2xl overflow-hidden shadow-2xl w-full max-w-md pointer-events-auto flex flex-col max-h-[90vh]">
-            <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+        <div class="relative bg-zinc-900 border border-zinc-700/80 rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl w-full max-w-md pointer-events-auto flex flex-col max-h-[92vh] sm:max-h-[90vh]">
+            <!-- Mobile Top Pull/Swipe Indicator -->
+            <div class="w-12 h-1.5 rounded-full bg-zinc-600/60 mx-auto mt-2.5 mb-1 sm:hidden shrink-0"></div>
+            <div class="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-zinc-800">
                 <div class="flex items-center gap-2">
                     <i class="ph-fill ph-motorcycle text-brand-500 text-xl"></i>
-                    <h3 class="text-lg font-bold text-white">Rider Garage & Profile</h3>
+                    <h3 class="text-base sm:text-lg font-bold text-white">Rider Garage & Profile</h3>
                 </div>
-                <button id="btnCloseGarage" type="button" class="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:text-white">
+                <button id="btnCloseGarage" type="button" class="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-800 text-zinc-400 hover:text-white active:scale-95">
                     <i class="ph ph-x"></i>
                 </button>
             </div>
 
-            <div class="p-6 overflow-y-auto">
+            <div class="p-4 sm:p-6 overflow-y-auto">
                 <!-- Auth View (When Logged Out) -->
                 <div id="authContainer">
                     <div class="grid grid-cols-2 gap-1 bg-zinc-950 p-1 rounded-xl border border-zinc-800 mb-5">
