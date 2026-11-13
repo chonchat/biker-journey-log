@@ -1820,6 +1820,8 @@ if (btnSaveRouteAsTrip) {
     showToast('นำข้อมูลเส้นทางมาใส่ในฟอร์มบันทึกทริปเรียบร้อย! เติมรูปภาพแล้วบันทึกได้เลย 🏍️');
   });
 }
+
+btnModalSearchPlace.addEventListener('click', async () => {
   const q = tripLocationName.value.trim();
   if (!q) {
     showToast('กรุณาพิมพ์ชื่อสถานที่ก่อนกดค้นหาพิกัด', 'error');
