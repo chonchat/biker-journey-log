@@ -1816,9 +1816,22 @@ async function saveNewCommentOrReply(tripId, text, parentId = null, replyToUsern
     throw error;
   }
 
-  // ส่งแจ้งเตือนไปยังเจ้าของทริป (Fallback กรณีไม่มี SQL trigger)
+  // ส่งแจ้งเตือนไปยังเจ้าของทริป (ตรวจสอบเพื่อไม่ให้ซ้ำกับ SQL trigger)
   try {
     if (activeModalTrip && activeModalTrip.user_id && activeModalTrip.user_id !== currentUser.id) {
+      if (insertedComment?.id) {
+        // ตรวจสอบว่า SQL Trigger ใน Supabase สร้างแจ้งเตือนไปแล้วหรือยัง ถ้ามีแล้วจะไม่สร้างซ้ำ
+        const { data: existingNotif } = await supabase
+          .from('notifications')
+          .select('id')
+          .eq('comment_id', insertedComment.id)
+          .limit(1);
+
+        if (existingNotif && existingNotif.length > 0) {
+          return;
+        }
+      }
+
       const commenterName =
         currentUserProfile?.username ||
         currentUser.user_metadata?.username ||
@@ -1836,7 +1849,7 @@ async function saveNewCommentOrReply(tripId, text, parentId = null, replyToUsern
       ]);
     }
   } catch (notifErr) {
-    console.warn('Fallback notification notice:', notifErr);
+    console.warn('Notification notice:', notifErr);
   }
 }
 
@@ -3195,7 +3208,17 @@ async function fetchUserNotifications() {
       return;
     }
 
-    userNotifications = data || [];
+    // ตัดรายการแจ้งเตือนที่ซ้ำซ้อนออก (Deduplication) เพื่อให้แสดงผล 1 รายการต่อ 1 คอมเมนต์เสมอ
+    const seenNotifs = new Set();
+    userNotifications = (data || []).filter((n) => {
+      const key = n.comment_id
+        ? `cm-${n.comment_id}`
+        : `${n.trip_id}-${n.actor_id}-${n.message}`;
+      if (seenNotifs.has(key)) return false;
+      seenNotifs.add(key);
+      return true;
+    });
+
     renderNotificationsUI();
   } catch (err) {
     console.warn('Error fetching notifications:', err);
@@ -3862,6 +3885,9 @@ async function initApp() {
     updateAuthUI(session);
   });
 
+  // ป้องกันการแจ้งเตือน Real-time เด้งซ้ำซ้อนภายในระยะเวลาใกล้เคียงกัน
+  const recentNotifToasts = new Set();
+
   // ติดตามการเพิ่มทริป, คอมเมนต์ และการแจ้งเตือนแบบ Real-time
   try {
     supabase
@@ -3882,7 +3908,15 @@ async function initApp() {
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
         if (currentUser && payload.new?.user_id === currentUser.id) {
-          showToast(`🔔 ${payload.new.message}`, 'info');
+          const notifKey = payload.new.comment_id
+            ? `cm-${payload.new.comment_id}`
+            : `${payload.new.trip_id}-${payload.new.actor_id}-${payload.new.message}`;
+
+          if (!recentNotifToasts.has(notifKey)) {
+            recentNotifToasts.add(notifKey);
+            setTimeout(() => recentNotifToasts.delete(notifKey), 4000);
+            showToast(`🔔 ${payload.new.message}`, 'info');
+          }
           fetchUserNotifications();
         }
       })

@@ -77,6 +77,21 @@ CREATE TABLE IF NOT EXISTS public.notifications (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ลบข้อมูลการแจ้งเตือนที่ซ้ำกันในอดีต (ถ้ามี) ให้เหลือเพียง 1 รายการต่อ 1 คอมเมนต์
+DELETE FROM public.notifications a
+USING public.notifications b
+WHERE a.id > b.id
+  AND a.user_id = b.user_id
+  AND (
+    (a.comment_id IS NOT NULL AND a.comment_id = b.comment_id)
+    OR (a.trip_id = b.trip_id AND a.actor_id = b.actor_id AND a.message = b.message AND abs(extract(epoch from (a.created_at - b.created_at))) < 10)
+  );
+
+-- สร้าง Unique Index ป้องกันการสร้างการแจ้งเตือนซ้ำสำหรับคอมเมนต์เดียวกัน
+CREATE UNIQUE INDEX IF NOT EXISTS uq_notifications_comment_user
+  ON public.notifications (comment_id, user_id)
+  WHERE comment_id IS NOT NULL;
+
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can view own notifications" ON public.notifications;
