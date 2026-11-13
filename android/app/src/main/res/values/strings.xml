@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RideMap</string>
+    <string name="title_activity_main">RideMap</string>
+    <string name="package_name">com.bikerjourney.ridemap</string>
+    <string name="custom_url_scheme">com.bikerjourney.ridemap</string>
+</resources>

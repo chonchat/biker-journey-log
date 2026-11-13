@@ -3,10 +3,21 @@
   "version": "1.0.0",
   "description": "Biker Journey Log - บันทึกเส้นทางทริปขี่มอเตอร์ไซค์",
   "scripts": {
+    "build": "node build.js",
+    "cap:sync": "npm run build && npx cap sync",
+    "cap:open:android": "npx cap open android",
     "dev": "npx serve -l 5500",
     "start": "npx serve -l 5500"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/cli": "^8.6.2",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/geolocation": "^8.2.4",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.4"
+  }
 }

@@ -2,3 +2,8 @@ cloudflared.exe
 *.log
 test_ids.py
 .DS_Store
+node_modules/
+dist/
+www/
+android/app/build/
+android/.gradle/
