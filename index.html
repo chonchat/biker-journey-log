@@ -813,7 +813,48 @@
                     </div>
 
                     <!-- Quick Form to Add Checkpoint (with Place Search) -->
-                    <form id="formAddCheckpoint" class="hidden bg-zinc-950 border border-zinc-800 rounded-xl p-3 mb-3 space-y-2">
+                    <form id="formAddCheckpoint" class="hidden bg-zinc-950 border border-zinc-800 rounded-xl p-3 mb-3 space-y-2.5">
+                        <div class="flex items-center justify-between pb-1 border-b border-zinc-800/80">
+                            <span class="text-xs font-bold text-brand-400 flex items-center gap-1.5">
+                                <i class="ph-bold ph-map-pin-line"></i> เพิ่มจุดบนเส้นทางทริป
+                            </span>
+                            <span class="text-[11px] text-zinc-400">เลือกประเภทจุด</span>
+                        </div>
+
+                        <!-- ตัวเลือกประเภทจุด: Start, Waypoint, End -->
+                        <div>
+                            <label class="block text-[11px] font-semibold text-zinc-400 mb-1">ประเภทจุดเดินทาง (Point Type)</label>
+                            <div class="grid grid-cols-3 gap-1.5">
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="cpPointTypeRadio" value="waypoint" checked class="peer hidden" />
+                                    <div class="py-1.5 px-2 rounded-lg bg-zinc-900 border border-zinc-700/80 peer-checked:border-amber-500 peer-checked:bg-amber-500/20 text-center transition">
+                                        <div class="text-xs font-bold text-amber-400 flex items-center justify-center gap-1">
+                                            <span>🟠</span> จุดแวะ
+                                        </div>
+                                        <span class="text-[10px] text-zinc-400 block mt-0.5">Waypoint</span>
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="cpPointTypeRadio" value="start" class="peer hidden" />
+                                    <div class="py-1.5 px-2 rounded-lg bg-zinc-900 border border-zinc-700/80 peer-checked:border-emerald-500 peer-checked:bg-emerald-500/20 text-center transition">
+                                        <div class="text-xs font-bold text-emerald-400 flex items-center justify-center gap-1">
+                                            <span>🟢</span> จุดเริ่ม
+                                        </div>
+                                        <span class="text-[10px] text-zinc-400 block mt-0.5">Start</span>
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="cpPointTypeRadio" value="end" class="peer hidden" />
+                                    <div class="py-1.5 px-2 rounded-lg bg-zinc-900 border border-zinc-700/80 peer-checked:border-red-500 peer-checked:bg-red-500/20 text-center transition">
+                                        <div class="text-xs font-bold text-red-400 flex items-center justify-center gap-1">
+                                            <span>🏁</span> ปลายทาง
+                                        </div>
+                                        <span class="text-[10px] text-zinc-400 block mt-0.5">Finish</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
                         <div class="flex gap-1.5">
                             <input type="text" id="cpLocationName" placeholder="พิมพ์ชื่อสถานที่แล้วกดค้นหาพิกัด..." required class="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-brand-500" />
                             <button type="button" id="btnCpSearchPlace" class="bg-zinc-800 hover:bg-zinc-700 text-brand-400 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-zinc-700 shrink-0">
@@ -829,7 +870,7 @@
                                 <i class="ph ph-crosshair text-brand-500"></i> ดึง GPS ปัจจุบัน
                             </button>
                             <button type="submit" id="btnCpSubmit" class="flex-1 bg-brand-500 hover:bg-brand-600 text-zinc-950 text-xs font-bold py-1.5 px-2 rounded-lg transition">
-                                บันทึกจุดแวะพัก
+                                บันทึกจุดบนเส้นทาง
                             </button>
                         </div>
                     </form>
@@ -974,6 +1015,42 @@
                 <div>
                     <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Trip Title (ชื่อทริป)</label>
                     <input type="text" id="tripTitle" placeholder="เช่น ทริปพิชิตดอยอินทนนท์ / โค้งแม่ฮ่องสอน" required class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-500" />
+                </div>
+
+                <!-- ตัวเลือกประเภทจุดเริ่มต้นของทริป -->
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-brand-400 mb-1">
+                        🏁 จุดนี้คือจุดอะไรของทริป? (Point Type)
+                    </label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="tripPointTypeRadio" value="start" checked class="peer hidden" />
+                            <div class="py-2 px-2.5 rounded-xl bg-zinc-950 border border-zinc-800 peer-checked:border-emerald-500 peer-checked:bg-emerald-500/15 text-center transition">
+                                <div class="text-xs font-bold text-emerald-400 flex items-center justify-center gap-1">
+                                    <span>🟢</span> จุดสตาร์ท
+                                </div>
+                                <span class="text-[10px] text-zinc-400 block mt-0.5">Start Point</span>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="tripPointTypeRadio" value="waypoint" class="peer hidden" />
+                            <div class="py-2 px-2.5 rounded-xl bg-zinc-950 border border-zinc-800 peer-checked:border-amber-500 peer-checked:bg-amber-500/15 text-center transition">
+                                <div class="text-xs font-bold text-amber-400 flex items-center justify-center gap-1">
+                                    <span>🟠</span> จุดแวะ / ไฮไลต์
+                                </div>
+                                <span class="text-[10px] text-zinc-400 block mt-0.5">Waypoint</span>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="tripPointTypeRadio" value="end" class="peer hidden" />
+                            <div class="py-2 px-2.5 rounded-xl bg-zinc-950 border border-zinc-800 peer-checked:border-red-500 peer-checked:bg-red-500/15 text-center transition">
+                                <div class="text-xs font-bold text-red-400 flex items-center justify-center gap-1">
+                                    <span>🏁</span> จุดสิ้นสุด
+                                </div>
+                                <span class="text-[10px] text-zinc-400 block mt-0.5">Finish Point</span>
+                            </div>
+                        </label>
+                    </div>
                 </div>
 
                 <!-- ค้นหาสถานที่อัตโนมัติในฟอร์ม -->

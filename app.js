@@ -1576,6 +1576,68 @@ function getAllDisplayedTrips() {
   return [...userTrips, ...showcaseTrips];
 }
 
+// Helper สร้างไอคอน Marker บนแผนที่ตามประเภท (Start, Waypoint, End)
+function createPointMarkerIcon(pointType, labelText, imgUrl = null) {
+  let badgeColor = 'bg-amber-500 border-amber-400 text-zinc-950';
+  let dotColor = 'bg-amber-400';
+  let defaultEmoji = '🟠';
+  let badgeText = labelText || 'จุดแวะ';
+
+  if (pointType === 'start') {
+    badgeColor = 'bg-emerald-500 border-emerald-300 text-zinc-950';
+    dotColor = 'bg-emerald-400';
+    defaultEmoji = '🟢';
+    badgeText = labelText || 'จุดสตาร์ท';
+  } else if (pointType === 'end') {
+    badgeColor = 'bg-red-600 border-red-400 text-white';
+    dotColor = 'bg-red-500';
+    defaultEmoji = '🏁';
+    badgeText = labelText || 'ปลายทาง';
+  }
+
+  if (imgUrl) {
+    return L.divIcon({
+      className: 'bg-transparent border-none',
+      html: `
+        <div class="relative w-14 h-14 rounded-full border-2 ${
+          pointType === 'start'
+            ? 'border-emerald-400 shadow-[0_0_16px_rgba(16,185,129,0.7)]'
+            : pointType === 'end'
+            ? 'border-red-500 shadow-[0_0_16px_rgba(239,68,68,0.7)]'
+            : 'border-brand-500 shadow-[0_0_15px_rgba(245,158,11,0.6)]'
+        } overflow-hidden bg-zinc-900 transform transition-transform hover:scale-110 hover:border-white hover:z-50 cursor-pointer group flex items-center justify-center">
+          <img src="${imgUrl}" class="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" alt="Trip Marker"/>
+          <div class="absolute inset-0 ring-inset ring-2 ring-black/20 rounded-full"></div>
+          <span class="absolute top-0 right-0 text-[11px] leading-none drop-shadow">${defaultEmoji}</span>
+        </div>
+        <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] ${
+          pointType === 'start'
+            ? 'border-t-emerald-400'
+            : pointType === 'end'
+            ? 'border-t-red-500'
+            : 'border-t-brand-500'
+        } drop-shadow-md"></div>
+      `,
+      iconSize: [56, 64],
+      iconAnchor: [28, 64],
+    });
+  }
+
+  return L.divIcon({
+    className: 'bg-transparent border-none',
+    html: `
+      <div class="relative flex items-center justify-center cursor-pointer group hover:scale-110 transition-transform">
+        <div class="px-2 py-0.5 rounded-full ${badgeColor} text-[10px] font-black border shadow-lg flex items-center gap-1 whitespace-nowrap">
+          <span>${defaultEmoji}</span>
+          <span>${badgeText}</span>
+        </div>
+      </div>
+    `,
+    iconSize: [80, 26],
+    iconAnchor: [40, 13],
+  });
+}
+
 function renderMapMarkers() {
   markersLayer.clearLayers();
   routesLayer.clearLayers();
@@ -1583,18 +1645,21 @@ function renderMapMarkers() {
   const allTrips = getAllDisplayedTrips();
 
   allTrips.forEach((trip) => {
-    const customIcon = L.divIcon({
-      className: 'bg-transparent border-none',
-      html: `
-        <div class="relative w-14 h-14 rounded-full border-2 border-brand-500 overflow-hidden shadow-[0_0_15px_rgba(245,158,11,0.6)] bg-zinc-900 transform transition-transform hover:scale-110 hover:border-white hover:z-50 cursor-pointer group flex items-center justify-center">
-          <img src="${trip.img}" class="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" alt="${trip.title}"/>
-          <div class="absolute inset-0 ring-inset ring-2 ring-black/20 rounded-full"></div>
-        </div>
-        <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-brand-500 drop-shadow-md"></div>
-      `,
-      iconSize: [56, 64],
-      iconAnchor: [28, 64],
+    const cps = Array.isArray(trip.checkpoints) ? [...trip.checkpoints] : [];
+    
+    // จัดเรียงจุด checkpoints: เรียงตาม order_index จากนั้นตาม created_at
+    cps.sort((a, b) => {
+      const ordA = a.order_index ?? 0;
+      const ordB = b.order_index ?? 0;
+      if (ordA !== ordB) return ordA - ordB;
+      return new Date(a.created_at || 0) - new Date(b.created_at || 0);
     });
+
+    const firstCp = cps[0];
+    const tripStartType = firstCp?.point_type || 'start';
+
+    // 1. หมุดหลักของทริป (Cover Marker)
+    const customIcon = createPointMarkerIcon(tripStartType, trip.title, trip.img);
 
     const marker = L.marker([trip.lat, trip.lng], { icon: customIcon }).addTo(markersLayer);
 
@@ -1604,28 +1669,36 @@ function renderMapMarkers() {
       map.panTo(new L.LatLng(trip.lat, trip.lng));
     });
 
-    if (appSettings.showRoutes !== false && trip.checkpoints && trip.checkpoints.length > 1) {
-      const latlngs = trip.checkpoints.map((cp) => [cp.latitude, cp.longitude]);
+    // 2. วาดเส้น Route Polyline เชื่อมต่อจุดทั้งหมดในทริป
+    if (appSettings.showRoutes !== false && cps.length > 1) {
+      const latlngs = cps.map((cp) => [Number(cp.latitude), Number(cp.longitude)]);
+
+      // วาดเส้น Outer Glow เพื่อความสวยงามพาดผ่านถนน
       L.polyline(latlngs, {
         color: '#f59e0b',
-        weight: 3,
+        weight: 6,
         opacity: 0.85,
-        dashArray: '6, 6',
+        lineCap: 'round',
+        lineJoin: 'round',
       }).addTo(routesLayer);
 
-      trip.checkpoints.slice(1).forEach((cp, idx) => {
-        const subIcon = L.divIcon({
-          className: 'bg-transparent border-none',
-          html: `
-            <div class="w-7 h-7 rounded-full bg-zinc-900 border-2 border-brand-500 text-brand-500 text-xs font-bold flex items-center justify-center shadow-[0_0_10px_rgba(245,158,11,0.5)]">
-              ${idx + 2}
-            </div>
-          `,
-          iconSize: [28, 28],
-          iconAnchor: [14, 14],
-        });
-        L.marker([cp.latitude, cp.longitude], { icon: subIcon })
-          .bindTooltip(`${trip.title} — จุดที่ ${idx + 2}: ${cp.location_name}`)
+      // วาดเส้น Inner Center Line (สีส้มทองคมชัด)
+      L.polyline(latlngs, {
+        color: '#fef3c7',
+        weight: 2,
+        opacity: 0.95,
+        dashArray: '8, 8',
+        lineCap: 'round',
+      }).addTo(routesLayer);
+
+      // ปักหมุด Checkpoint ย่อยทั้งหมดตั้งแต่จุดที่ 2 เป็นต้นไป
+      cps.slice(1).forEach((cp, idx) => {
+        const cpType = cp.point_type || (idx + 2 === cps.length ? 'end' : 'waypoint');
+        const defaultName = cpType === 'end' ? 'จุดสิ้นสุด' : `จุดแวะ ${idx + 2}`;
+        const subIcon = createPointMarkerIcon(cpType, cp.location_name || defaultName);
+
+        L.marker([Number(cp.latitude), Number(cp.longitude)], { icon: subIcon })
+          .bindTooltip(`${trip.title} — ${cp.location_name || defaultName}`)
           .on('click', () => openDetailModal(trip))
           .addTo(markersLayer);
       });
@@ -2456,19 +2529,40 @@ function openDetailModal(trip) {
   });
 
   modalCheckpoints.innerHTML = '';
-  const cps = trip.checkpoints || [];
+  const cps = Array.isArray(trip.checkpoints) ? [...trip.checkpoints] : [];
+  cps.sort((a, b) => {
+    const ordA = a.order_index ?? 0;
+    const ordB = b.order_index ?? 0;
+    if (ordA !== ordB) return ordA - ordB;
+    return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+  });
+
   cps.forEach((cp, index) => {
     const row = document.createElement('div');
     row.className =
       'flex items-center justify-between bg-zinc-950 border border-zinc-800/80 rounded-lg px-3 py-2 text-xs cursor-pointer hover:border-brand-500/50 transition';
+
+    const pType = cp.point_type || (index === 0 ? 'start' : index === cps.length - 1 ? 'end' : 'waypoint');
+    let typeBadge = '<span class="text-xs">🟠</span> <span class="text-[10px] text-amber-400 font-bold">จุดแวะ</span>';
+    if (pType === 'start') {
+      typeBadge = '<span class="text-xs">🟢</span> <span class="text-[10px] text-emerald-400 font-bold">จุดเริ่ม</span>';
+    } else if (pType === 'end') {
+      typeBadge = '<span class="text-xs">🏁</span> <span class="text-[10px] text-red-400 font-bold">ปลายทาง</span>';
+    }
+
     row.innerHTML = `
       <div class="flex items-center gap-2">
-        <span class="w-5 h-5 rounded-full bg-brand-500/20 border border-brand-500 text-brand-500 font-bold flex items-center justify-center">
+        <span class="w-5 h-5 rounded-full bg-zinc-800 border border-zinc-700 text-zinc-300 font-bold text-[11px] flex items-center justify-center shrink-0">
           ${index + 1}
         </span>
-        <span class="text-zinc-200 font-medium">${cp.location_name}</span>
+        <div class="flex flex-col">
+          <span class="text-zinc-200 font-medium">${cp.location_name}</span>
+          <div class="flex items-center gap-1.5 mt-0.5">
+            ${typeBadge}
+          </div>
+        </div>
       </div>
-      <span class="text-zinc-500 font-mono">${Number(cp.latitude).toFixed(4)}, ${Number(cp.longitude).toFixed(4)}</span>
+      <span class="text-zinc-500 font-mono text-[11px]">${Number(cp.latitude).toFixed(4)}, ${Number(cp.longitude).toFixed(4)}</span>
     `;
     row.addEventListener('click', () => {
       map.setView([cp.latitude, cp.longitude], 13);
@@ -2550,6 +2644,12 @@ formAddCheckpoint.addEventListener('submit', async (e) => {
   const latitude = parseFloat(cpLat.value);
   const longitude = parseFloat(cpLng.value);
 
+  const selectedPointTypeRadio = formAddCheckpoint.querySelector('input[name="cpPointTypeRadio"]:checked');
+  const pointType = selectedPointTypeRadio ? selectedPointTypeRadio.value : 'waypoint';
+
+  const existingCount = Array.isArray(activeModalTrip.checkpoints) ? activeModalTrip.checkpoints.length : 0;
+  const orderIndex = existingCount;
+
   btnCpSubmit.disabled = true;
   try {
     const { error } = await supabase.from('checkpoints').insert([
@@ -2558,11 +2658,13 @@ formAddCheckpoint.addEventListener('submit', async (e) => {
         location_name: locName,
         latitude,
         longitude,
+        point_type: pointType,
+        order_index: orderIndex,
       },
     ]);
     if (error) throw error;
 
-    showToast(`เพิ่มจุดแวะพัก "${locName}" สำเร็จ! 📍`);
+    showToast(`เพิ่มจุด "${locName}" บนเส้นทางสำเร็จ! 📍`);
     formAddCheckpoint.reset();
     formAddCheckpoint.classList.add('hidden');
     await fetchSupabaseTrips(activeModalTrip.id);
@@ -2832,8 +2934,9 @@ async function fetchSupabaseTrips(reopenTripId = null) {
     const [{ data: cpsData }, { data: photosData }] = await Promise.all([
       supabase
         .from('checkpoints')
-        .select('id, trip_id, location_name, latitude, longitude, created_at')
+        .select('id, trip_id, location_name, latitude, longitude, point_type, order_index, created_at')
         .in('trip_id', tripIds)
+        .order('order_index', { ascending: true })
         .order('created_at', { ascending: true }),
       supabase
         .from('trip_photos')
@@ -3486,12 +3589,17 @@ formLogTrip.addEventListener('submit', async (e) => {
 
     if (tripErr) throw tripErr;
 
+    const selectedTripPointTypeRadio = formLogTrip.querySelector('input[name="tripPointTypeRadio"]:checked');
+    const tripPointType = selectedTripPointTypeRadio ? selectedTripPointTypeRadio.value : 'start';
+
     const { error: cpErr } = await supabase.from('checkpoints').insert([
       {
         trip_id: newTrip.id,
         location_name: locationName,
         latitude,
         longitude,
+        point_type: tripPointType,
+        order_index: 0,
       },
     ]);
     if (cpErr) throw cpErr;
