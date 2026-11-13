@@ -349,6 +349,29 @@ const btnGarageNewTrip = document.getElementById('btnGarageNewTrip');
 const btnGoogleSignIn = document.getElementById('btnGoogleSignIn');
 const googleSetupNotice = document.getElementById('googleSetupNotice');
 
+// Directions Panel Elements (Google Maps Style Routing)
+const btnToggleDirectionsPanel = document.getElementById('btnToggleDirectionsPanel');
+const directionsCard = document.getElementById('directionsCard');
+const btnCloseDirectionsCard = document.getElementById('btnCloseDirectionsCard');
+const routeInputStart = document.getElementById('routeInputStart');
+const btnRouteUseCurrentGps = document.getElementById('btnRouteUseCurrentGps');
+const routeStartSuggest = document.getElementById('routeStartSuggest');
+const routeWaypointsContainer = document.getElementById('routeWaypointsContainer');
+const routeInputEnd = document.getElementById('routeInputEnd');
+const btnRouteSwapPoints = document.getElementById('btnRouteSwapPoints');
+const routeEndSuggest = document.getElementById('routeEndSuggest');
+const btnAddRouteWaypoint = document.getElementById('btnAddRouteWaypoint');
+const btnCalculateRoute = document.getElementById('btnCalculateRoute');
+const routeSummaryBox = document.getElementById('routeSummaryBox');
+const routeDurationText = document.getElementById('routeDurationText');
+const routeDistanceText = document.getElementById('routeDistanceText');
+const routeViaRoadText = document.getElementById('routeViaRoadText');
+const btnSaveRouteAsTrip = document.getElementById('btnSaveRouteAsTrip');
+const btnClearActiveRoute = document.getElementById('btnClearActiveRoute');
+
+// Layer สำหรับวาดเส้น Directions บนแผนที่
+const activeDirectionsLayer = L.layerGroup().addTo(map);
+
 // GPS Permission & Banner Elements
 const gpsPermissionBanner = document.getElementById('gpsPermissionBanner');
 const btnBannerAllowGps = document.getElementById('btnBannerAllowGps');
@@ -1385,7 +1408,418 @@ document.addEventListener('click', (e) => {
   }
 });
 
-btnModalSearchPlace.addEventListener('click', async () => {
+// ============================================================
+// 5.1 ระบบนำทางและคำนวณเส้นทางขับขี่จริง (Google Maps Style Routing / OSRM)
+// ============================================================
+let activeRouteData = null;
+let routeStartPoint = null; // { name, lat, lng }
+let routeEndPoint = null;   // { name, lat, lng }
+let routeWaypoints = [];    // array of { name, lat, lng }
+
+function formatDurationThai(seconds) {
+  const mins = Math.round(seconds / 60);
+  if (mins < 60) return `${mins} นาที`;
+  const hours = Math.floor(mins / 60);
+  const remainMins = mins % 60;
+  return remainMins > 0 ? `${hours} ชม. ${remainMins} นาที` : `${hours} ชั่วโมง`;
+}
+
+function formatDistanceKm(meters) {
+  return `${(meters / 1000).toFixed(1)} กม.`;
+}
+
+function toggleDirectionsPanel() {
+  if (!directionsCard) return;
+  const isHidden = directionsCard.classList.contains('hidden');
+  if (isHidden) {
+    directionsCard.classList.remove('hidden');
+    // ถ้าผู้ใช้เคยดึง GPS ไว้ ให้ใส่เป็นจุดเริ่มต้นทันที
+    if (!routeStartPoint && userLocationMarker) {
+      const pos = userLocationMarker.getLatLng();
+      routeStartPoint = { name: 'ตำแหน่งปัจจุบันของคุณ (GPS)', lat: pos.lat, lng: pos.lng };
+      routeInputStart.value = routeStartPoint.name;
+    }
+  } else {
+    directionsCard.classList.add('hidden');
+  }
+}
+
+if (btnToggleDirectionsPanel) {
+  btnToggleDirectionsPanel.addEventListener('click', toggleDirectionsPanel);
+}
+if (btnCloseDirectionsCard) {
+  btnCloseDirectionsCard.addEventListener('click', () => {
+    directionsCard.classList.add('hidden');
+  });
+}
+
+// ผูกระบบ Auto-Suggest สำหรับช่อง Start
+let suggestDebounceStart = null;
+if (routeInputStart) {
+  routeInputStart.addEventListener('input', () => {
+    const q = routeInputStart.value.trim();
+    if (suggestDebounceStart) clearTimeout(suggestDebounceStart);
+    if (q.length < 2) {
+      routeStartSuggest.classList.add('hidden');
+      return;
+    }
+    suggestDebounceStart = setTimeout(async () => {
+      try {
+        const places = await searchPlacesByQuery(q);
+        routeStartSuggest.innerHTML = '';
+        if (!places.length) {
+          routeStartSuggest.classList.add('hidden');
+          return;
+        }
+        places.forEach((p) => {
+          const item = document.createElement('div');
+          item.className = 'px-3 py-2 hover:bg-zinc-800 cursor-pointer border-b border-zinc-800 text-zinc-200';
+          const short = p.name || p.display_name.split(',')[0];
+          item.innerHTML = `<span class="font-bold text-white">📍 ${short}</span><div class="text-[11px] text-zinc-400 truncate">${p.display_name}</div>`;
+          item.addEventListener('click', () => {
+            routeStartPoint = { name: short, lat: parseFloat(p.lat), lng: parseFloat(p.lon) };
+            routeInputStart.value = short;
+            routeStartSuggest.classList.add('hidden');
+          });
+          routeStartSuggest.appendChild(item);
+        });
+        routeStartSuggest.classList.remove('hidden');
+      } catch (err) {
+        console.warn('Suggest err:', err);
+      }
+    }, 300);
+  });
+}
+
+// ผูกระบบ Auto-Suggest สำหรับช่อง End (Destination)
+let suggestDebounceEnd = null;
+if (routeInputEnd) {
+  routeInputEnd.addEventListener('input', () => {
+    const q = routeInputEnd.value.trim();
+    if (suggestDebounceEnd) clearTimeout(suggestDebounceEnd);
+    if (q.length < 2) {
+      routeEndSuggest.classList.add('hidden');
+      return;
+    }
+    suggestDebounceEnd = setTimeout(async () => {
+      try {
+        const places = await searchPlacesByQuery(q);
+        routeEndSuggest.innerHTML = '';
+        if (!places.length) {
+          routeEndSuggest.classList.add('hidden');
+          return;
+        }
+        places.forEach((p) => {
+          const item = document.createElement('div');
+          item.className = 'px-3 py-2 hover:bg-zinc-800 cursor-pointer border-b border-zinc-800 text-zinc-200';
+          const short = p.name || p.display_name.split(',')[0];
+          item.innerHTML = `<span class="font-bold text-white">🏁 ${short}</span><div class="text-[11px] text-zinc-400 truncate">${p.display_name}</div>`;
+          item.addEventListener('click', () => {
+            routeEndPoint = { name: short, lat: parseFloat(p.lat), lng: parseFloat(p.lon) };
+            routeInputEnd.value = short;
+            routeEndSuggest.classList.add('hidden');
+          });
+          routeEndSuggest.appendChild(item);
+        });
+        routeEndSuggest.classList.remove('hidden');
+      } catch (err) {
+        console.warn('Suggest err:', err);
+      }
+    }, 300);
+  });
+}
+
+if (btnRouteUseCurrentGps) {
+  btnRouteUseCurrentGps.addEventListener('click', () => {
+    if (!navigator.geolocation) {
+      showToast('เบราว์เซอร์ไม่รองรับ GPS', 'error');
+      return;
+    }
+    btnRouteUseCurrentGps.innerHTML = '<i class="ph-bold ph-spinner animate-spin text-sm"></i>';
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        btnRouteUseCurrentGps.innerHTML = '<i class="ph-bold ph-crosshair text-sm"></i>';
+        routeStartPoint = {
+          name: 'ตำแหน่งปัจจุบันของคุณ (GPS)',
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        };
+        routeInputStart.value = routeStartPoint.name;
+        showToast('เลือกจุดเริ่มต้นเป็นพิกัดปัจจุบันของคุณแล้ว 🟢');
+      },
+      (err) => {
+        btnRouteUseCurrentGps.innerHTML = '<i class="ph-bold ph-crosshair text-sm"></i>';
+        showToast(`ไม่สามารถดึง GPS ได้: ${err.message}`, 'error');
+      }
+    );
+  });
+}
+
+// สลับจุดเริ่มต้นและจุดสิ้นสุด
+if (btnRouteSwapPoints) {
+  btnRouteSwapPoints.addEventListener('click', () => {
+    const tempP = routeStartPoint;
+    routeStartPoint = routeEndPoint;
+    routeEndPoint = tempP;
+
+    const tempVal = routeInputStart.value;
+    routeInputStart.value = routeInputEnd.value;
+    routeInputEnd.value = tempVal;
+
+    if (routeStartPoint && routeEndPoint) {
+      calculateAndDrawRoute();
+    }
+  });
+}
+
+// เพิ่มจุดแวะพัก (Waypoint) แบบไดนามิก
+function renderRouteWaypointsInputs() {
+  if (!routeWaypointsContainer) return;
+  routeWaypointsContainer.innerHTML = '';
+  routeWaypoints.forEach((wp, index) => {
+    const row = document.createElement('div');
+    row.className = 'flex items-center gap-2 relative';
+    row.innerHTML = `
+      <span class="w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-amber-400/20 shrink-0 ml-1"></span>
+      <input
+        type="text"
+        placeholder="จุดแวะที่ ${index + 1} (เช่น ปั๊ม PTT, ร้านกาแฟ)..."
+        value="${wp.name || ''}"
+        class="wp-input flex-1 bg-zinc-900 border border-zinc-700/80 rounded-xl px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-brand-500"
+      />
+      <button type="button" class="btn-del-wp text-zinc-500 hover:text-red-400 font-bold px-2 py-1 text-sm">✕</button>
+      <div class="wp-suggest hidden absolute top-full left-5 right-8 mt-1 bg-zinc-900 border border-zinc-700 rounded-xl max-h-32 overflow-y-auto z-20 shadow-xl text-xs"></div>
+    `;
+
+    const input = row.querySelector('.wp-input');
+    const suggest = row.querySelector('.wp-suggest');
+    const btnDel = row.querySelector('.btn-del-wp');
+
+    btnDel.addEventListener('click', () => {
+      routeWaypoints.splice(index, 1);
+      renderRouteWaypointsInputs();
+      if (routeStartPoint && routeEndPoint) calculateAndDrawRoute();
+    });
+
+    let debTimer = null;
+    input.addEventListener('input', () => {
+      const q = input.value.trim();
+      if (debTimer) clearTimeout(debTimer);
+      if (q.length < 2) {
+        suggest.classList.add('hidden');
+        return;
+      }
+      debTimer = setTimeout(async () => {
+        try {
+          const places = await searchPlacesByQuery(q);
+          suggest.innerHTML = '';
+          if (!places.length) {
+            suggest.classList.add('hidden');
+            return;
+          }
+          places.forEach((p) => {
+            const short = p.name || p.display_name.split(',')[0];
+            const item = document.createElement('div');
+            item.className = 'px-3 py-1.5 hover:bg-zinc-800 cursor-pointer border-b border-zinc-800 text-zinc-200';
+            item.innerHTML = `<strong>🟠 ${short}</strong><div class="text-[10px] text-zinc-400 truncate">${p.display_name}</div>`;
+            item.addEventListener('click', () => {
+              routeWaypoints[index] = { name: short, lat: parseFloat(p.lat), lng: parseFloat(p.lon) };
+              input.value = short;
+              suggest.classList.add('hidden');
+            });
+            suggest.appendChild(item);
+          });
+          suggest.classList.remove('hidden');
+        } catch {
+          // ignore
+        }
+      }, 300);
+    });
+
+    routeWaypointsContainer.appendChild(row);
+  });
+}
+
+if (btnAddRouteWaypoint) {
+  btnAddRouteWaypoint.addEventListener('click', () => {
+    routeWaypoints.push({ name: '', lat: null, lng: null });
+    renderRouteWaypointsInputs();
+  });
+}
+
+// ฟังก์ชันหลัก: คำนวณเส้นทางขับขี่จริงผ่าน OSRM API (โค้งตามถนน 100%)
+async function calculateAndDrawRoute() {
+  // หากยังไม่ได้เลือกจุดพิกัด ให้ลองค้นหาจากข้อความในกล่อง
+  if (!routeStartPoint && routeInputStart?.value.trim()) {
+    const res = await searchPlacesByQuery(routeInputStart.value.trim());
+    if (res[0]) {
+      routeStartPoint = {
+        name: res[0].name || res[0].display_name.split(',')[0],
+        lat: parseFloat(res[0].lat),
+        lng: parseFloat(res[0].lon),
+      };
+    }
+  }
+  if (!routeEndPoint && routeInputEnd?.value.trim()) {
+    const res = await searchPlacesByQuery(routeInputEnd.value.trim());
+    if (res[0]) {
+      routeEndPoint = {
+        name: res[0].name || res[0].display_name.split(',')[0],
+        lat: parseFloat(res[0].lat),
+        lng: parseFloat(res[0].lon),
+      };
+    }
+  }
+
+  if (!routeStartPoint || !routeEndPoint) {
+    showToast('กรุณาระบุทั้งจุดเริ่มต้นและจุดหมายปลายทางครับ 🗺️', 'error');
+    return;
+  }
+
+  btnCalculateRoute.disabled = true;
+  btnCalculateRoute.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> กำลังคำนวณ...';
+
+  try {
+    // รวมจุดพิกัดทั้งหมดตามลำดับ: Start -> Waypoints -> End
+    const allCoords = [
+      routeStartPoint,
+      ...routeWaypoints.filter((w) => w.lat && w.lng),
+      routeEndPoint,
+    ];
+
+    // รูปแบบ URL ของ OSRM: lng,lat;lng,lat (OSRM ใช้ lng ก่อน lat)
+    const coordString = allCoords.map((c) => `${c.lng},${c.lat}`).join(';');
+    const url = `https://router.project-osrm.org/route/v1/driving/${coordString}?overview=full&geometries=geojson`;
+
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('ไม่สามารถเชื่อมต่อระบบคำนวณเส้นทางได้');
+    const data = await resp.json();
+
+    if (data.code !== 'Ok' || !data.routes || !data.routes.length) {
+      throw new Error('ไม่พบเส้นทางขับขี่ระหว่างจุดที่ระบุ');
+    }
+
+    const route = data.routes[0];
+    activeRouteData = {
+      route,
+      points: allCoords,
+      coordinates: route.geometry.coordinates.map((c) => [c[1], c[0]]), // แปลงกลับเป็น [lat, lng] สำหรับ Leaflet
+    };
+
+    // ล้างเส้นทางเก่าและวาดเส้นใหม่
+    activeDirectionsLayer.clearLayers();
+
+    // 1. วาดเส้นขอบเรืองแสงสีฟ้าอมส้มสไตล์ Google Maps
+    const routeOutline = L.polyline(activeRouteData.coordinates, {
+      color: '#1e40af', // Blue 800
+      weight: 8,
+      opacity: 0.6,
+      lineCap: 'round',
+      lineJoin: 'round',
+    }).addTo(activeDirectionsLayer);
+
+    // 2. วาดเส้นทางขับขี่หลัก (สีฟ้าสว่างหรือส้มสว่าง เลี้ยวโค้งตามถนน)
+    const routePath = L.polyline(activeRouteData.coordinates, {
+      color: '#3b82f6', // Blue 500
+      weight: 5,
+      opacity: 0.95,
+      lineCap: 'round',
+      lineJoin: 'round',
+    }).addTo(activeDirectionsLayer);
+
+    // 3. ปักหมุด Start, Waypoints, End สไตล์ Google Maps
+    const startIcon = L.divIcon({
+      className: 'bg-transparent border-none',
+      html: `
+        <div class="flex items-center gap-1 bg-emerald-500 text-zinc-950 font-black text-xs px-2.5 py-1 rounded-full shadow-2xl border-2 border-white animate-bounce">
+          <span>🟢</span>
+          <span>${routeStartPoint.name}</span>
+        </div>
+      `,
+      iconSize: [120, 30],
+      iconAnchor: [60, 30],
+    });
+    L.marker([routeStartPoint.lat, routeStartPoint.lng], { icon: startIcon }).addTo(activeDirectionsLayer);
+
+    routeWaypoints.forEach((wp, i) => {
+      if (!wp.lat || !wp.lng) return;
+      const wpIcon = L.divIcon({
+        className: 'bg-transparent border-none',
+        html: `
+          <div class="flex items-center gap-1 bg-amber-500 text-zinc-950 font-black text-xs px-2 py-0.5 rounded-full shadow-xl border border-white">
+            <span>🟠</span>
+            <span>${wp.name || `จุดแวะ ${i + 1}`}</span>
+          </div>
+        `,
+        iconSize: [100, 26],
+        iconAnchor: [50, 26],
+      });
+      L.marker([wp.lat, wp.lng], { icon: wpIcon }).addTo(activeDirectionsLayer);
+    });
+
+    const endIcon = L.divIcon({
+      className: 'bg-transparent border-none',
+      html: `
+        <div class="flex items-center gap-1 bg-red-600 text-white font-black text-xs px-2.5 py-1 rounded-full shadow-2xl border-2 border-white animate-pulse">
+          <span>🏁</span>
+          <span>${routeEndPoint.name}</span>
+        </div>
+      `,
+      iconSize: [120, 30],
+      iconAnchor: [60, 30],
+    });
+    L.marker([routeEndPoint.lat, routeEndPoint.lng], { icon: endIcon }).addTo(activeDirectionsLayer);
+
+    // ปรับมุมมองกล้องบนแผนที่ให้พอดีกับเส้นทางทั้งหมด (Fit Bounds)
+    map.fitBounds(routePath.getBounds(), { padding: [50, 50], maxZoom: 14 });
+
+    // แสดงผลข้อมูลสรุป (ระยะทาง + เวลา)
+    if (routeSummaryBox) {
+      routeDurationText.textContent = formatDurationThai(route.duration);
+      routeDistanceText.textContent = `(${formatDistanceKm(route.distance)})`;
+      routeViaRoadText.textContent = `เส้นทางผ่าน: ${allCoords.map((c) => c.name).join(' ➔ ')}`;
+      routeSummaryBox.classList.remove('hidden');
+    }
+
+    showToast(`คำนวณเส้นทางสำเร็จ! ระยะทาง ${formatDistanceKm(route.distance)} (${formatDurationThai(route.duration)}) 🏍️🛣️`);
+  } catch (err) {
+    showToast(`คำนวณเส้นทางไม่สำเร็จ: ${err.message}`, 'error');
+  } finally {
+    btnCalculateRoute.disabled = false;
+    btnCalculateRoute.innerHTML = '<i class="ph-bold ph-compass"></i> ค้นหาเส้นทาง';
+  }
+}
+
+if (btnCalculateRoute) {
+  btnCalculateRoute.addEventListener('click', calculateAndDrawRoute);
+}
+
+if (btnClearActiveRoute) {
+  btnClearActiveRoute.addEventListener('click', () => {
+    activeDirectionsLayer.clearLayers();
+    activeRouteData = null;
+    routeSummaryBox.classList.add('hidden');
+    showToast('ล้างเส้นทางขับขี่เรียบร้อย');
+  });
+}
+
+// แปลงเส้นทางที่คำนวณได้ ส่งต่อให้ฟอร์ม Log Trip ทันที
+if (btnSaveRouteAsTrip) {
+  btnSaveRouteAsTrip.addEventListener('click', () => {
+    if (!activeRouteData || !routeStartPoint || !routeEndPoint) return;
+    directionsCard.classList.add('hidden');
+
+    // นำชื่อเส้นทางไปใส่ในฟอร์ม Log Trip
+    tripTitle.value = `ทริปจาก ${routeStartPoint.name} ไป ${routeEndPoint.name}`;
+    tripLocationName.value = routeStartPoint.name;
+    tripLat.value = routeStartPoint.lat.toFixed(6);
+    tripLng.value = routeStartPoint.lng.toFixed(6);
+    tripDesc.value = `ขี่มอเตอร์ไซค์จาก ${routeStartPoint.name} ไปยัง ${routeEndPoint.name} ระยะทางประมาณ ${formatDistanceKm(activeRouteData.route.distance)} ใช้เวลาเดินทางประมาณ ${formatDurationThai(activeRouteData.route.duration)}`;
+
+    openLogTripModal();
+    showToast('นำข้อมูลเส้นทางมาใส่ในฟอร์มบันทึกทริปเรียบร้อย! เติมรูปภาพแล้วบันทึกได้เลย 🏍️');
+  });
+}
   const q = tripLocationName.value.trim();
   if (!q) {
     showToast('กรุณาพิมพ์ชื่อสถานที่ก่อนกดค้นหาพิกัด', 'error');
